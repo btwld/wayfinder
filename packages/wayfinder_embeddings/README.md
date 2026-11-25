@@ -103,9 +103,10 @@ try {
   `WayfinderEncoderProvider` declares the encoder's identity, which names the
   index without opening a model, and opens encoders on demand;
   `LocalModelEncoderProvider` loads a GGUF file the host located, after
-  checking its size and SHA-256. The store keeps indexes as plain files and
-  needs no database library. The CLI's own host code is
-  `packages/wayfinder_cli/lib/src/native_runtime.dart`. Everything a host
+  checking its size and SHA-256. The default store uses plain files. The CLI
+  and MCP server register the SQLite driver in
+  `packages/wayfinder_cli/lib/src/native_runtime.dart`. See the
+  [SQLite driver](../wayfinder_drift/README.md). Everything a host
   names, `BaseEmbedder`, `Chunk` and `KnowledgeSearchResponse` included,
   comes from `knowledge_store.dart`.
 - **Operations.** `verify` checks the complete vector checksum without loading
