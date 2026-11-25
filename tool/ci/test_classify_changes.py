@@ -81,6 +81,32 @@ class ClassificationTest(unittest.TestCase):
             'code',
         ))
 
+    def test_github_mcp_proxy_changes_skip_dart_ci_and_trigger_node_ci(self):
+        node_only = [
+            'apps/github-mcp-proxy/src/main.ts',
+            'apps/github-mcp-proxy/test/unit/okf.spec.ts',
+        ]
+        self.assertFalse(classify.should_run(node_only, 'code'))
+        self.assertTrue(classify.should_run(node_only, 'github-mcp-proxy'))
+
+        proxy_docs_only = ['apps/github-mcp-proxy/README.md']
+        self.assertFalse(classify.should_run(proxy_docs_only, 'code'))
+        self.assertFalse(classify.should_run(proxy_docs_only, 'github-mcp-proxy'))
+
+        dart_only = ['packages/wayfinder/lib/wayfinder.dart']
+        self.assertTrue(classify.should_run(dart_only, 'code'))
+        self.assertFalse(classify.should_run(dart_only, 'github-mcp-proxy'))
+
+        mixed = ['apps/github-mcp-proxy/src/main.ts', 'packages/wayfinder/lib/wayfinder.dart']
+        self.assertTrue(classify.should_run(mixed, 'code'))
+        self.assertTrue(classify.should_run(mixed, 'github-mcp-proxy'))
+
+        ci_edit = ['.github/workflows/ci.yml']
+        self.assertTrue(classify.should_run(ci_edit, 'code'))
+        self.assertTrue(classify.should_run(ci_edit, 'github-mcp-proxy'))
+
+        self.assertTrue(classify.should_run(None, 'github-mcp-proxy'))
+
     def test_empty_or_unknown_history_runs_code_jobs(self):
         self.assertTrue(classify.should_run([], 'code'))
         self.assertTrue(classify.should_run(None, 'code'))
@@ -156,6 +182,31 @@ class RequiredCheckTest(unittest.TestCase):
             changes='success', run=True,
             results={'posix': 'skipped', 'windows': 'skipped'},
             may_skip={'windows'},
+        )
+        self.assertEqual(failed, 'failed')
+
+    def test_node_only_pr_passes_required_check_when_dart_jobs_skip(self):
+        status, _ = classify.evaluate(
+            changes='success',
+            run=True,
+            results={
+                'test': 'skipped',
+                'native-retrieval': 'skipped',
+                'github-mcp-proxy': 'success',
+            },
+            may_skip={'test', 'native-retrieval'},
+        )
+        self.assertEqual(status, 'passed')
+
+        failed, _ = classify.evaluate(
+            changes='success',
+            run=True,
+            results={
+                'test': 'skipped',
+                'native-retrieval': 'skipped',
+                'github-mcp-proxy': 'skipped',
+            },
+            may_skip={'test', 'native-retrieval'},
         )
         self.assertEqual(failed, 'failed')
 
@@ -314,6 +365,9 @@ class WorkflowContractTest(unittest.TestCase):
         ):
             self.assertIn(command, native, command)
         self.assertLess(native.index('objectbox:install'), native.index('--tags native'))
+        proxy_job = _job_section(ci, 'github-mcp-proxy:')
+        self.assertIn('needs.changes.outputs.run_github_mcp_proxy', proxy_job)
+        self.assertIn('github.event.pull_request.draft == false', proxy_job)
 
 
 def _job_names(text: str) -> list[str]:

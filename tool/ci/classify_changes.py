@@ -46,6 +46,11 @@ PUBLIC_INSTALL_FILES = frozenset({
     'tool/install.sh',
     'tool/install.ps1',
 })
+GITHUB_MCP_PROXY_PREFIX = 'apps/github-mcp-proxy/'
+GITHUB_MCP_PROXY_CI_FILES = frozenset({
+    '.github/workflows/ci.yml',
+    'tool/ci/classify_changes.py',
+})
 
 
 def normalize(path: str) -> str:
@@ -109,6 +114,10 @@ def is_code(path: str) -> bool:
     return not is_non_code(path)
 
 
+def is_github_mcp_proxy_path(path: str) -> bool:
+    return normalize(path).startswith(GITHUB_MCP_PROXY_PREFIX)
+
+
 def _zero_sha(value: str) -> bool:
     return not value or set(value) <= {'0'}
 
@@ -122,7 +131,16 @@ def should_run(paths: list[str] | None, mode: str) -> bool:
     if paths is None:
         return True
     if mode == 'code':
-        return not paths or any(is_code(path) for path in paths)
+        return not paths or any(
+            is_code(path) and not is_github_mcp_proxy_path(path)
+            for path in paths
+        )
+    if mode == 'github-mcp-proxy':
+        return any(
+            (is_github_mcp_proxy_path(path) and is_code(path))
+            or normalize(path) in GITHUB_MCP_PROXY_CI_FILES
+            for path in paths
+        )
     watched = INSTALLER_FILES if mode == 'installer' else PUBLIC_INSTALL_FILES
     if mode not in {'installer', 'public-install'}:
         raise ValueError(f'Unknown classification mode: {mode}')
@@ -213,7 +231,7 @@ def _parse_results(raw: str) -> dict[str, str]:
     return results
 
 
-def classify_from_env(mode: str) -> int:
+def classify_from_env(mode: str, output_name: str = 'run') -> int:
     paths = changed_paths(
         os.environ.get('BASE_SHA', ''),
         os.environ.get('HEAD_SHA', ''),
@@ -226,7 +244,7 @@ def classify_from_env(mode: str) -> int:
         print(f'{len(paths)} changed path(s).')
         for path in paths:
             print(f'{"code" if is_code(path) else "non-code"}\t{path}')
-    _write_output('run', 'true' if run else 'false')
+    _write_output(output_name, 'true' if run else 'false')
     return 0
 
 
@@ -249,8 +267,13 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         '--mode',
-        choices=('code', 'installer', 'public-install'),
+        choices=('code', 'installer', 'public-install', 'github-mcp-proxy'),
         help='Which heavy jobs the diff can skip.',
+    )
+    parser.add_argument(
+        '--output-name',
+        default='run',
+        help='GitHub Actions output variable name to write (default: run).',
     )
     parser.add_argument(
         '--require',
@@ -263,7 +286,7 @@ def main(argv: list[str] | None = None) -> int:
             return require_from_env()
         if not args.mode:
             parser.error('--mode is required unless --require is set')
-        return classify_from_env(args.mode)
+        return classify_from_env(args.mode, output_name=args.output_name)
     except (OSError, RuntimeError, ValueError, KeyError) as error:
         print(f'Change classification failed: {error}', file=sys.stderr)
         return 1

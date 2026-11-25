@@ -25,3 +25,11 @@ HANDOFF.md
 
 # Python bytecode from tool/ci scripts.
 __pycache__/
+
+# Node / Firebase Functions (apps/github-mcp-proxy)
+apps/github-mcp-proxy/node_modules/
+apps/github-mcp-proxy/dist/
+apps/github-mcp-proxy/.env
+apps/github-mcp-proxy/.env.*
+!apps/github-mcp-proxy/.env.example
+apps/github-mcp-proxy/.firebase/

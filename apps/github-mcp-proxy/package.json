@@ -1,0 +1,45 @@
+{
+  "name": "@wayfinder/github-mcp-proxy",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Stateless GitHub-backed Wayfinder test API and MCP proxy server",
+  "main": "dist/index.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/main.js",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.26.0",
+    "@nest-mcp/common": "^0.6.1",
+    "@nest-mcp/server": "^0.8.1",
+    "@nestjs/common": "^11.1.0",
+    "@nestjs/core": "^11.1.0",
+    "@nestjs/platform-express": "^11.1.0",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "firebase-admin": "^13.0.0",
+    "firebase-functions": "^6.6.0",
+    "jose": "^6.0.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.1",
+    "yaml": "^2.8.0",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@swc/core": "^1.15.0",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.0.0",
+    "@types/supertest": "^6.0.2",
+    "supertest": "^7.1.0",
+    "typescript": "^5.9.0",
+    "unplugin-swc": "^1.5.0",
+    "vitest": "^3.2.4"
+  }
+}

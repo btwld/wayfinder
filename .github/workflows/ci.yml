@@ -28,6 +28,7 @@ jobs:
     timeout-minutes: 5
     outputs:
       run: ${{ steps.classify.outputs.run }}
+      run_github_mcp_proxy: ${{ steps.classify.outputs.run_github_mcp_proxy }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -39,7 +40,9 @@ jobs:
           BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
           HEAD_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
           DIFF_DOTS: ${{ github.event_name == 'pull_request' && '...' || '..' }}
-        run: python3 tool/ci/classify_changes.py --mode code
+        run: |
+          python3 tool/ci/classify_changes.py --mode code
+          python3 tool/ci/classify_changes.py --mode github-mcp-proxy --output-name run_github_mcp_proxy
 
   test:
     needs: changes
@@ -273,9 +276,33 @@ jobs:
             ${{ runner.temp }}/okf-development.json
             ${{ runner.temp }}/okf-held-out.json
 
+  github-mcp-proxy:
+    name: GitHub MCP Proxy (Node)
+    needs: changes
+    if: >-
+      needs.changes.result == 'success' &&
+      needs.changes.outputs.run_github_mcp_proxy == 'true' &&
+      (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: apps/github-mcp-proxy
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: apps/github-mcp-proxy/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
   required-checks:
     name: Required checks
-    needs: [changes, test, native-retrieval]
+    needs: [changes, test, native-retrieval, github-mcp-proxy]
     if: >-
       always() &&
       !cancelled() &&
@@ -289,8 +316,9 @@ jobs:
       - name: Report the required check
         env:
           CHANGES: ${{ needs.changes.result }}
-          RUN: ${{ needs.changes.outputs.run }}
-          RESULTS: test=${{ needs.test.result }},native-retrieval=${{ needs.native-retrieval.result }}
+          RUN: ${{ needs.changes.outputs.run == 'true' || needs.changes.outputs.run_github_mcp_proxy == 'true' }}
+          RESULTS: test=${{ needs.test.result }},native-retrieval=${{ needs.native-retrieval.result }},github-mcp-proxy=${{ needs.github-mcp-proxy.result }}
+          MAY_SKIP: ${{ format('{0}{1}', needs.changes.outputs.run != 'true' && 'test,native-retrieval,' || '', needs.changes.outputs.run_github_mcp_proxy != 'true' && 'github-mcp-proxy' || '') }}
         run: python3 tool/ci/classify_changes.py --require
 
 
