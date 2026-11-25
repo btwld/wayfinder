@@ -1,0 +1,19 @@
+name: wayfinder_storage_testing
+description: Model-free contract tests for Wayfinder storage drivers.
+version: 0.0.0
+publish_to: none
+resolution: workspace
+
+environment:
+  sdk: '>=3.11.0 <4.0.0'
+
+dependencies:
+  crypto: ^3.0.3
+  okf: ^0.7.0-beta.1
+  path: ^1.9.1
+  test: ^1.26.3
+  wayfinder: ^0.5.0-beta.2
+  wayfinder_embeddings: ^0.6.0-beta.1
+
+dev_dependencies:
+  lints: ^6.0.0

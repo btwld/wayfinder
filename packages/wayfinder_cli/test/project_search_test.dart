@@ -362,7 +362,7 @@ class _ProjectKnowledge extends WayfinderKnowledgeStore {
   bool related = false;
 
   @override
-  Future<KnowledgeIndexStatus> status(ProjectBundle bundle) async {
+  Future<KnowledgeIndexStatus> verify(ProjectBundle bundle) async {
     statusChecked.add(bundle.root);
     return const KnowledgeIndexStale([]);
   }

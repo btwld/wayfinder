@@ -1,10 +1,13 @@
 import 'dart:convert';
+import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:okf/okf.dart';
 import 'package:wayfinder/project.dart'
     show
         ProjectBundle,
+        WayfinderException,
         WayfinderCancellation,
         throwIfCancelled,
         KnowledgeMetadataFilter;
@@ -16,6 +19,7 @@ import '../models/chunk.dart';
 import '../models/embedding.dart';
 import '../models/search_result.dart';
 import '../storage/base_store.dart';
+import '../store/generation_format.dart';
 import '../util/similarity.dart';
 import 'knowledge_snapshot.dart';
 
@@ -244,6 +248,30 @@ class KnowledgeSearchResponse {
   final List<KnowledgeNotice> notices;
 }
 
+Future<KnowledgeSearchResponse> searchStoredGeneration({
+  required KnowledgeSnapshot snapshot,
+  required GenerationReader reader,
+  required BaseEmbedder embedder,
+  required String bundleRoot,
+  required String query,
+  required int limit,
+  int? contextLimit,
+  KnowledgeSearchPolicy? policy,
+  WayfinderCancellation? cancel,
+}) =>
+    KnowledgeIndex._fromGeneration(
+      snapshot: snapshot,
+      reader: reader,
+      embedder: embedder,
+      bundleRoot: bundleRoot,
+    ).search(
+      query,
+      limit: limit,
+      contextLimit: contextLimit,
+      policy: policy,
+      cancel: cancel,
+    );
+
 /// Synchronizes one bundle and searches an explicit eligible concept set.
 ///
 /// The caller owns the store and embedder. Synchronization must not
@@ -258,22 +286,37 @@ class KnowledgeIndex {
   /// Semantic search checks that every eligible passage has a compatible vector.
   KnowledgeIndex.fromSnapshot({
     required KnowledgeSnapshot snapshot,
-    required this.store,
+    required BaseStore store,
     required this.embedder,
     this.includeContext = false,
     this.bundleRoot,
-  }) : countTokens = null,
+  }) : _store = store,
+       _reader = null,
+       countTokens = null,
+       maxTokens = null,
+       _snapshot = snapshot;
+
+  KnowledgeIndex._fromGeneration({
+    required KnowledgeSnapshot snapshot,
+    required GenerationReader reader,
+    required this.embedder,
+    this.bundleRoot,
+  }) : _store = null,
+       _reader = reader,
+       includeContext = true,
+       countTokens = null,
        maxTokens = null,
        _snapshot = snapshot;
 
   KnowledgeIndex({
-    required this.store,
+    required BaseStore store,
     required this.embedder,
     this.includeContext = false,
     this.countTokens,
     this.maxTokens,
     this.bundleRoot,
-  }) {
+  }) : _store = store,
+       _reader = null {
     if ((countTokens == null) != (maxTokens == null) ||
         (maxTokens != null && maxTokens! <= 0)) {
       throw ArgumentError(
@@ -281,7 +324,9 @@ class KnowledgeIndex {
       );
     }
   }
-  final BaseStore store;
+  final BaseStore? _store;
+  final GenerationReader? _reader;
+  BaseStore get store => _store!;
   final BaseEmbedder embedder;
   final bool includeContext;
   final Future<int> Function(String)? countTokens;
@@ -439,6 +484,20 @@ class KnowledgeIndex {
     try {
       final dense = <SearchResult>[];
       if (eligible.isNotEmpty) {
+        if (_reader case final reader?) {
+          final vector = await _queryVector(query);
+          throwIfCancelled(cancel);
+          return await _searchGeneration(
+            reader,
+            snapshot,
+            eligible,
+            vector,
+            policy: effective,
+            limit: limit,
+            budget: budget,
+            cancel: cancel,
+          );
+        }
         final stored = await store.getEmbeddingsForChunks(
           eligible.keys.toSet(),
           source: embedder.sourceName,
@@ -450,13 +509,7 @@ class KnowledgeIndex {
             'passage. Synchronize the index again.',
           );
         }
-        final key = query.trim();
-        final vector =
-            _queryCache.remove(key) ?? await embedder.generateQueryVector(key);
-        _queryCache[key] = vector;
-        if (_queryCache.length > 100) {
-          _queryCache.remove(_queryCache.keys.first);
-        }
+        final vector = await _queryVector(query);
         throwIfCancelled(cancel);
         for (final embedding in stored) {
           dense.add(
@@ -467,12 +520,7 @@ class KnowledgeIndex {
             ),
           );
         }
-        dense.sort((a, b) {
-          final score = b.similarity.compareTo(a.similarity);
-          if (score != 0) return score;
-          final path = a.chunk.sourcePath.compareTo(b.chunk.sourcePath);
-          return path == 0 ? a.chunk.id.compareTo(b.chunk.id) : path;
-        });
+        dense.sort(_compareHits);
       }
       return _contextForEligible(
         snapshot,
@@ -485,6 +533,190 @@ class KnowledgeIndex {
     } finally {
       _searches--;
     }
+  }
+
+  /// The query embedding, kept for the 100 most recent queries.
+  Future<List<double>> _queryVector(String query) async {
+    final key = query.trim();
+    final vector =
+        _queryCache.remove(key) ?? await embedder.generateQueryVector(key);
+    _queryCache[key] = vector;
+    if (_queryCache.length > 100) {
+      _queryCache.remove(_queryCache.keys.first);
+    }
+    return vector;
+  }
+
+  static int _compareHits(SearchResult left, SearchResult right) {
+    final score = right.similarity.compareTo(left.similarity);
+    if (score != 0) return score;
+    final path = left.chunk.sourcePath.compareTo(right.chunk.sourcePath);
+    return path == 0 ? left.chunk.id.compareTo(right.chunk.id) : path;
+  }
+
+  Future<KnowledgeSearchResponse> _searchGeneration(
+    GenerationReader reader,
+    KnowledgeSnapshot snapshot,
+    Map<String, Chunk> eligible,
+    List<double> query, {
+    required KnowledgeSearchPolicy policy,
+    required int limit,
+    required int budget,
+    required WayfinderCancellation? cancel,
+  }) async {
+    final chunks = snapshot.chunks;
+    final allowed = <int>{
+      for (final (ordinal, chunk) in chunks.indexed)
+        if (eligible.containsKey(chunk.id)) ordinal,
+    };
+    final (:vector, :scoreError) = _nearestQuery(query);
+    SearchResult score(int ordinal, Float32List row) {
+      if (row.length != query.length || row.any((value) => !value.isFinite)) {
+        throw const FormatException(
+          'A vector has the wrong dimension or values.',
+        );
+      }
+      final chunk = chunks[ordinal];
+      return SearchResult(
+        chunk: chunk,
+        embedding: Embedding(
+          chunkId: chunk.id,
+          source: embedder.sourceName,
+          modelName: embeddingModelName,
+          vector: row,
+        ),
+        similarity: cosineSimilarity(query, row),
+      );
+    }
+
+    var count = math.min(limit + 1, allowed.length);
+    late List<SearchResult> ranked;
+    while (true) {
+      final near = await reader.nearest(
+        vector,
+        count,
+        allowed: allowed.length == chunks.length ? null : allowed,
+      );
+      throwIfCancelled(cancel);
+      if (near.length != count) {
+        throw WayfinderException(
+          'index-incompatible',
+          'The generation reader returned ${near.length} nearest rows; expected $count.',
+        );
+      }
+      final seen = <int>{};
+      ranked = [];
+      var boundary = double.infinity;
+      for (final row in near) {
+        if (!allowed.contains(row.ordinal) || !seen.add(row.ordinal)) {
+          throw const WayfinderException(
+            'index-incompatible',
+            'The generation reader returned an excluded or duplicate row.',
+          );
+        }
+        final hit = score(row.ordinal, row.vector);
+        ranked.add(hit);
+        boundary = math.min(
+          boundary,
+          scoreError == 0
+              ? hit.similarity
+              : cosineSimilarity(vector, row.vector),
+        );
+      }
+      ranked.sort(_compareHits);
+      if (count == allowed.length) break;
+      final paths = <String>{};
+      final cutoff = ranked
+          .where((hit) => paths.add(hit.chunk.sourcePath))
+          .take(limit)
+          .last;
+      if (paths.length == limit && cutoff.similarity > boundary + scoreError) {
+        break;
+      }
+      count = math.min(count * 2, allowed.length);
+    }
+
+    final response = _contextForEligible(
+      snapshot,
+      eligible,
+      ranked,
+      policy: policy,
+      limit: limit,
+      budget: budget,
+    );
+    if (count == allowed.length) return response;
+    final matches = response.matches.map((hit) => hit.chunk.sourcePath).toSet();
+    final contextPaths =
+        response.context.map((hit) => hit.result.chunk.sourcePath).toSet()
+          ..removeAll(matches);
+    if (contextPaths.isEmpty) return response;
+    final ordinals = [
+      for (final ordinal in allowed)
+        if (contextPaths.contains(chunks[ordinal].sourcePath)) ordinal,
+    ];
+    final rows = await reader.rows(ordinals);
+    throwIfCancelled(cancel);
+    if (rows.length != ordinals.length) {
+      throw const WayfinderException(
+        'index-incompatible',
+        'The generation reader did not return every requested context row.',
+      );
+    }
+    final best = <String, SearchResult>{};
+    for (final (index, ordinal) in ordinals.indexed) {
+      final hit = score(ordinal, rows[index]);
+      final path = hit.chunk.sourcePath;
+      final previous = best[path];
+      if (previous == null || _compareHits(hit, previous) < 0) best[path] = hit;
+    }
+    return KnowledgeSearchResponse(
+      matches: response.matches,
+      context: [
+        for (final hit in response.context)
+          KnowledgeContextHit(
+            best[hit.result.chunk.sourcePath] ?? hit.result,
+            hit.reason,
+            viaPath: hit.viaPath,
+            edge: hit.edge,
+            fieldEdge: hit.fieldEdge,
+          ),
+      ],
+      notices: response.notices,
+      sourcePaths: response.sourcePaths,
+    );
+  }
+
+  /// Bounds the score change from passing a float32 query to the reader.
+  /// The difference of unit query vectors bounds their dot-product difference
+  /// with any unit row. Expanding an ambiguous cutoff also preserves ties.
+  static ({Float32List vector, double scoreError}) _nearestQuery(
+    List<double> query,
+  ) {
+    final scale = query.fold(0.0, (top, value) => math.max(top, value.abs()));
+    var vector = Float32List.fromList(query);
+    if (scale == 0 ||
+        query.indexed.every((entry) => entry.$2 == vector[entry.$1])) {
+      return (vector: vector, scoreError: 0);
+    }
+    final scaled = [for (final value in query) value / scale];
+    if (vector.any((value) => !value.isFinite) ||
+        vector.every((value) => value == 0)) {
+      vector = Float32List.fromList(scaled);
+    }
+    final roundedScale = vector.fold(
+      0.0,
+      (top, value) => math.max(top, value.abs()),
+    );
+    final rounded = [for (final value in vector) value / roundedScale];
+    double norm(List<double> values) =>
+        math.sqrt(values.fold(0.0, (sum, value) => sum + value * value));
+    final originalNorm = norm(scaled);
+    final roundedNorm = norm(rounded);
+    final error = norm([
+      for (final (index, value) in scaled.indexed)
+        value / originalNorm - rounded[index] / roundedNorm,
+    ]);
+    return (vector: vector, scoreError: error + query.length * 1e-14);
   }
 
   /// Applies the same eligibility and context policy to externally ranked hits.

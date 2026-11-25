@@ -7,16 +7,16 @@ import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:wayfinder/project.dart';
 import 'package:wayfinder_embeddings/knowledge_store.dart';
-import 'package:wayfinder_embeddings/src/store/generation_pin_hook.dart';
 import 'package:wayfinder_embeddings/testing.dart';
 
-import 'support/search_loop.dart';
-import 'support/store_support.dart';
+import 'generation_format_harness.dart';
+import 'search_loop.dart';
+import 'store_support.dart';
 
 /// Read-while-index across isolates and processes (#110): searches keep
 /// working while `index(force: true)` runs, see the refresh, and never read
 /// a partial generation; writers exclude each other.
-void main() {
+void runConcurrencySuite(GenerationFormatHarness harness) {
   late Directory temp;
   late Directory data;
   late ProjectBundle bundle;
@@ -40,6 +40,7 @@ void main() {
     Future<void> Function(String text)? beforeDocument,
   }) => WayfinderKnowledgeStore(
     dataDirectory: data,
+    formats: [harness.format],
     // Superseded generations go at once, so readers race the collection.
     gracePeriod: Duration.zero,
     encoder: TestEncoderProvider(
@@ -50,149 +51,155 @@ void main() {
     ),
   );
 
-  test(
-    'searches from another isolate and a subprocess never fail '
-    'during index --force, see the refresh, and read only whole generations',
-    () async {
-      final first = await writer().index(bundle);
-      final reference = searchFingerprint(
-        await WayfinderKnowledgeStore(
-          dataDirectory: data,
-          encoder: TestEncoderProvider([], model: concurrencyModel),
-        ).searchBundle(bundle, concurrencyQuery),
-      );
-      final referenceFile = File(p.join(temp.path, 'reference.json'));
-      await referenceFile.writeAsString(reference);
-
-      // The isolate.
-      final fromIsolate = ReceivePort();
-      final isolateMessages = StreamIterator(fromIsolate);
-      await Isolate.spawn(_searchingIsolate, (
-        fromIsolate.sendPort,
-        data.path,
-        bundle.root,
-        reference,
-      ));
-      expect(await isolateMessages.moveNext(), isTrue);
-      final stopIsolate = isolateMessages.current as SendPort;
-
-      // The subprocess, from a kernel snapshot. `dart run` would run the
-      // package's build hooks again, which write llamadart's library into
-      // .dart_tool/lib anew while other suites of this run load it.
-      final snapshot = p.join(temp.path, 'search_loop.dill');
-      final compiled = await Process.run(Platform.resolvedExecutable, [
-        'compile',
-        'kernel',
-        p.join('test', 'support', 'search_loop.dart'),
-        '--output=$snapshot',
-      ]);
-      expect(
-        compiled.exitCode,
-        0,
-        reason: '${compiled.stdout}${compiled.stderr}',
-      );
-      final subprocess = await Process.start(Platform.resolvedExecutable, [
-        snapshot,
-        data.path,
-        bundle.root,
-        referenceFile.path,
-      ]);
-      final errors = StringBuffer();
-      subprocess.stderr.transform(utf8.decoder).listen(errors.write);
-      final lines = StreamIterator(
-        subprocess.stdout
-            .transform(utf8.decoder)
-            .transform(const LineSplitter()),
-      );
-
-      final isolateSawRefresh = Completer<void>();
-      final subprocessSawRefresh = Completer<void>();
-      final isolateSummary = Completer<Map<String, Object?>>();
-      unawaited(() async {
-        while (await isolateMessages.moveNext()) {
-          switch (isolateMessages.current) {
-            case 'refresh':
-              isolateSawRefresh.complete();
-            case final Map<Object?, Object?> summary:
-              isolateSummary.complete(Map<String, Object?>.from(summary));
-          }
-        }
-      }());
-      final subprocessSummary = Completer<Map<String, Object?>>();
-      unawaited(() async {
-        while (await lines.moveNext()) {
-          final line = lines.current;
-          if (line == 'refresh') subprocessSawRefresh.complete();
-          if (line.startsWith('summary ')) {
-            subprocessSummary.complete(
-              Map<String, Object?>.from(
-                jsonDecode(line.substring('summary '.length)) as Map,
-              ),
-            );
-          }
-        }
-      }());
-
-      // The first forced index waits, holding the writer lock, until both
-      // readers have served a search during it; later ones run freely and
-      // collect what they supersede at once.
-      var waited = false;
-      final indexing = writer(
-        beforeDocument: (_) async {
-          if (!waited) {
-            waited = true;
-            await Future.wait([
-              isolateSawRefresh.future,
-              subprocessSawRefresh.future,
-            ]).timeout(
-              const Duration(minutes: 2),
-              onTimeout: () =>
-                  fail('A reader saw no refresh. Subprocess stderr: $errors'),
-            );
-          }
-          await Future<void>.delayed(const Duration(milliseconds: 1));
-        },
-      );
-      for (var run = 0; run < 4; run++) {
-        final result = await indexing.index(bundle, force: true);
-        expect(result.embeddedChunks, first.embeddedChunks);
-      }
-
-      stopIsolate.send('stop');
-      await subprocess.stdin.close();
-      final summaries = {
-        'isolate': await isolateSummary.future.timeout(
-          const Duration(minutes: 1),
-        ),
-        'subprocess': await subprocessSummary.future.timeout(
-          const Duration(minutes: 1),
-        ),
-      };
-      expect(await subprocess.exitCode, 0, reason: '$errors');
-      fromIsolate.close();
-      for (final MapEntry(key: reader, value: summary) in summaries.entries) {
-        printOnFailure('$reader: $summary');
-        expect(summary['failures'], isEmpty, reason: reader);
-        expect(
-          summary['mismatches'],
-          isEmpty,
-          reason: '$reader read only whole generations',
+  if (harness.format is PlainFileGenerationFormat) {
+    test(
+      'searches from another isolate and a subprocess never fail '
+      'during index --force, see the refresh, and read only whole generations',
+      () async {
+        final first = await writer().index(bundle);
+        final reference = searchFingerprint(
+          await WayfinderKnowledgeStore(
+            dataDirectory: data,
+            formats: [harness.format],
+            encoder: TestEncoderProvider([], model: concurrencyModel),
+          ).searchBundle(bundle, concurrencyQuery),
         );
-        expect(summary['refreshes'], greaterThan(0), reason: reader);
-        expect(summary['searches'], greaterThan(0), reason: reader);
-      }
-      // Only the last generation stays: the others were collected under the
-      // readers. Windows keeps a generation a reader had open for a later
-      // publication.
-      if (!Platform.isWindows) {
+        final referenceFile = File(p.join(temp.path, 'reference.json'));
+        await referenceFile.writeAsString(reference);
+
+        // The isolate.
+        final fromIsolate = ReceivePort();
+        final isolateMessages = StreamIterator(fromIsolate);
+        await Isolate.spawn(_searchingIsolate, (
+          fromIsolate.sendPort,
+          data.path,
+          bundle.root,
+          reference,
+          harness.format,
+        ));
+        expect(await isolateMessages.moveNext(), isTrue);
+        final stopIsolate = isolateMessages.current as SendPort;
+
+        // The subprocess, from a kernel snapshot. `dart run` would run the
+        // package's build hooks again, which write llamadart's library into
+        // .dart_tool/lib anew while other suites of this run load it.
+        final snapshot = p.join(temp.path, 'search_loop.dill');
+        final compiled = await Process.run(Platform.resolvedExecutable, [
+          'compile',
+          'kernel',
+          (await Isolate.resolvePackageUri(
+            Uri.parse('package:wayfinder_storage_testing/src/search_loop.dart'),
+          ))!.toFilePath(),
+          '--output=$snapshot',
+        ]);
         expect(
-          Directory(first.index).listSync().whereType<Directory>(),
-          hasLength(1),
+          compiled.exitCode,
+          0,
+          reason: '${compiled.stdout}${compiled.stderr}',
         );
-      }
-    },
-    timeout: const Timeout(Duration(minutes: 4)),
-  );
+        final subprocess = await Process.start(Platform.resolvedExecutable, [
+          snapshot,
+          data.path,
+          bundle.root,
+          referenceFile.path,
+        ]);
+        final errors = StringBuffer();
+        subprocess.stderr.transform(utf8.decoder).listen(errors.write);
+        final lines = StreamIterator(
+          subprocess.stdout
+              .transform(utf8.decoder)
+              .transform(const LineSplitter()),
+        );
+
+        final isolateSawRefresh = Completer<void>();
+        final subprocessSawRefresh = Completer<void>();
+        final isolateSummary = Completer<Map<String, Object?>>();
+        unawaited(() async {
+          while (await isolateMessages.moveNext()) {
+            switch (isolateMessages.current) {
+              case 'refresh':
+                isolateSawRefresh.complete();
+              case final Map<Object?, Object?> summary:
+                isolateSummary.complete(Map<String, Object?>.from(summary));
+            }
+          }
+        }());
+        final subprocessSummary = Completer<Map<String, Object?>>();
+        unawaited(() async {
+          while (await lines.moveNext()) {
+            final line = lines.current;
+            if (line == 'refresh') subprocessSawRefresh.complete();
+            if (line.startsWith('summary ')) {
+              subprocessSummary.complete(
+                Map<String, Object?>.from(
+                  jsonDecode(line.substring('summary '.length)) as Map,
+                ),
+              );
+            }
+          }
+        }());
+
+        // The first forced index waits, holding the writer lock, until both
+        // readers have served a search during it; later ones run freely and
+        // collect what they supersede at once.
+        var waited = false;
+        final indexing = writer(
+          beforeDocument: (_) async {
+            if (!waited) {
+              waited = true;
+              await Future.wait([
+                isolateSawRefresh.future,
+                subprocessSawRefresh.future,
+              ]).timeout(
+                const Duration(minutes: 2),
+                onTimeout: () =>
+                    fail('A reader saw no refresh. Subprocess stderr: $errors'),
+              );
+            }
+            await Future<void>.delayed(const Duration(milliseconds: 1));
+          },
+        );
+        for (var run = 0; run < 4; run++) {
+          final result = await indexing.index(bundle, force: true);
+          expect(result.embeddedChunks, first.embeddedChunks);
+        }
+
+        stopIsolate.send('stop');
+        await subprocess.stdin.close();
+        final summaries = {
+          'isolate': await isolateSummary.future.timeout(
+            const Duration(minutes: 1),
+          ),
+          'subprocess': await subprocessSummary.future.timeout(
+            const Duration(minutes: 1),
+          ),
+        };
+        expect(await subprocess.exitCode, 0, reason: '$errors');
+        fromIsolate.close();
+        for (final MapEntry(key: reader, value: summary) in summaries.entries) {
+          printOnFailure('$reader: $summary');
+          expect(summary['failures'], isEmpty, reason: reader);
+          expect(
+            summary['mismatches'],
+            isEmpty,
+            reason: '$reader read only whole generations',
+          );
+          expect(summary['refreshes'], greaterThan(0), reason: reader);
+          expect(summary['searches'], greaterThan(0), reason: reader);
+        }
+        // Only the last generation stays: the others were collected under the
+        // readers. Windows keeps a generation a reader had open for a later
+        // publication.
+        if (!Platform.isWindows) {
+          expect(
+            Directory(first.index).listSync().whereType<Directory>(),
+            hasLength(1),
+          );
+        }
+      },
+      timeout: const Timeout(Duration(minutes: 4)),
+    );
+  }
 
   test(
     'searches that probe the writer lock never make a lone writer busy',
@@ -211,6 +218,7 @@ void main() {
           data.path,
           bundle.root,
           reference,
+          harness.format,
         ));
         expect(await messages.moveNext(), isTrue);
         final stop = messages.current as SendPort;
@@ -281,6 +289,7 @@ void main() {
       fromIsolate.sendPort,
       data.path,
       bundle.root,
+      harness.format,
     ));
     expect(await messages.moveNext(), isTrue);
     final resume = messages.current as SendPort;
@@ -311,6 +320,7 @@ void main() {
       fromIsolate.sendPort,
       data.path,
       bundle.root,
+      harness.format,
     ));
     expect(await messages.moveNext(), isTrue);
     final release = messages.current as SendPort;
@@ -355,9 +365,9 @@ void main() {
 /// Runs [searchLoop] until the main isolate sends `stop`, then sends its
 /// summary.
 Future<void> _searchingIsolate(
-  (SendPort, String, String, String) message,
+  (SendPort, String, String, String, GenerationFormat) message,
 ) async {
-  final (reply, data, root, reference) = message;
+  final (reply, data, root, reference, format) = message;
   final commands = ReceivePort();
   reply.send(commands.sendPort);
   final stop = Completer<void>();
@@ -365,6 +375,7 @@ Future<void> _searchingIsolate(
     if (!stop.isCompleted) stop.complete();
   });
   final summary = await searchLoop(
+    format: format,
     data: data,
     root: root,
     reference: reference,
@@ -397,13 +408,16 @@ Future<void> _probingIsolate((SendPort, String) message) async {
 /// Searches once, pausing after it reads the pointer the first time until
 /// the main isolate sends `resume`; sends the pinned generation, then the
 /// generations it pinned and the top match, or the error.
-Future<void> _pausedReader((SendPort, String, String) message) async {
-  final (reply, data, root) = message;
+Future<void> _pausedReader(
+  (SendPort, String, String, GenerationFormat) message,
+) async {
+  final (reply, data, root, format) = message;
   final commands = ReceivePort();
   reply.send(commands.sendPort);
   final resumed = commands.first;
   final store = WayfinderKnowledgeStore(
     dataDirectory: Directory(data),
+    formats: [format],
     encoder: DeterministicEncoderProvider(model: concurrencyModel),
   );
   final pinned = <String>[];
@@ -433,13 +447,16 @@ Future<void> _pausedReader((SendPort, String, String) message) async {
 
 /// Forces an index whose encoder does not open until the main isolate
 /// sends `release`, so the isolate holds the writer lock meanwhile.
-Future<void> _holdingWriter((SendPort, String, String) message) async {
-  final (reply, data, root) = message;
+Future<void> _holdingWriter(
+  (SendPort, String, String, GenerationFormat) message,
+) async {
+  final (reply, data, root, format) = message;
   final commands = ReceivePort();
   reply.send(commands.sendPort);
   final released = commands.first;
   final store = WayfinderKnowledgeStore(
     dataDirectory: Directory(data),
+    formats: [format],
     encoder: TestEncoderProvider(
       [],
       model: concurrencyModel,

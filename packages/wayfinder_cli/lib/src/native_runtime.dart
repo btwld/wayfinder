@@ -21,6 +21,7 @@ WayfinderKnowledgeStore openKnowledgeStore({bool retainEncoder = false}) =>
       dataDirectory: WayfinderDataDirectory.resolve(),
       encoder: const _InstalledModel(),
       retainEncoder: retainEncoder,
+      formats: const [PlainFileGenerationFormat()],
     );
 
 /// Fails with `model-missing` or `model-invalid` when

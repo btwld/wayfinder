@@ -2,8 +2,7 @@ import 'package:test/test.dart';
 import 'package:wayfinder_embeddings/src/storage/embedding_entities.dart';
 import 'package:wayfinder_embeddings/src/storage/embedding_key.dart';
 import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
-
-import 'support/store_contract.dart';
+import 'package:wayfinder_storage_testing/wayfinder_storage_testing.dart';
 
 void main() {
   group('MemoryStore contract', () {

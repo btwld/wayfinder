@@ -21,8 +21,10 @@ import '../okf/knowledge_snapshot.dart';
 import '../storage/memory_store.dart';
 import 'encoder.dart';
 import 'generation.dart';
+import 'generation_format.dart';
 import 'generation_pin_hook.dart';
 import 'index_result.dart';
+import 'plain_file_generation.dart';
 import 'project_search.dart';
 import 'shared_encoder.dart';
 
@@ -39,16 +41,70 @@ typedef _SavedIndex = ({
   KnowledgeSnapshot snapshot,
 });
 
-typedef _CachedSavedIndex = ({String text, int bytes, _SavedIndex index});
+typedef _CachedSavedIndex = ({
+  String text,
+  int bytes,
+  _SavedIndex index,
+  List<Float32List>? vectors,
+});
 
 /// A published generation a reader holds: its record and its vectors, one
 /// row per snapshot chunk.
-typedef _Pinned = ({_SavedIndex saved, List<Float32List> vectors});
+typedef _Pinned = ({
+  _SavedIndex saved,
+  GenerationFormat format,
+  GenerationReader reader,
+  String record,
+  List<Float32List>? verified,
+});
 
 /// A bundle's index for the store's configuration: its canonical `root`,
 /// the namespace `directory` that holds its generations, and the `writer`
 /// lock file in that directory.
 typedef _Namespace = ({String root, Directory directory, File writer});
+
+final class _MissingFormatMarker extends WayfinderException {
+  _MissingFormatMarker(String markers)
+    : super(
+        'index-incompatible',
+        'Saved index is incomplete or incompatible: missing a known format marker ($markers).',
+      );
+}
+
+/// Serves rows the store already verified and detached.
+final class _VerifiedRowsReader implements GenerationReader {
+  _VerifiedRowsReader(this._reader, this._rows);
+
+  final GenerationReader _reader;
+  final List<Float32List> _rows;
+
+  @override
+  int get dimension => _reader.dimension;
+
+  @override
+  Future<String> record() => _reader.record();
+
+  @override
+  Future<int> rowCount() => _reader.rowCount();
+
+  @override
+  Future<List<Float32List>> vectors() async => _rows;
+
+  @override
+  Future<List<Float32List>> rows(List<int> ordinals) async => [
+    for (final ordinal in ordinals) _rows[ordinal],
+  ];
+
+  @override
+  Future<List<NearRow>> nearest(
+    Float32List query,
+    int count, {
+    Set<int>? allowed,
+  }) async => exactNearestRows(_rows, query, count, allowed: allowed);
+
+  @override
+  Future<void> close() => _reader.close();
+}
 
 /// One query vector for every bundle of a project search; the encoder stays
 /// owned by the operation.
@@ -71,12 +127,6 @@ class _SharedQueryEmbedder extends BaseEmbedder {
       _vector ??= delegate.generateQueryVector(text);
 }
 
-/// Thrown inside the store when a generation's files cannot be read, which
-/// garbage collection after a newer publication explains.
-final class _GenerationUnreadable implements Exception {
-  const _GenerationUnreadable();
-}
-
 /// Saved local indexes of OKF bundles, and dense search over them.
 ///
 /// Each bundle's index lives in [dataDirectory] under
@@ -84,22 +134,22 @@ final class _GenerationUnreadable implements Exception {
 /// the bundle's canonical root, so worktrees and copies get indexes of their
 /// own. The configuration key hashes the store's chunking, snapshot and
 /// storage configuration with its [encoder]'s identity, so a different
-/// model, chunker or format never reads or replaces another's index. Indexes
-/// earlier releases wrote elsewhere under `indexes/`, by Wayfinder 0.2
+/// model, chunker or record codec never reads or replaces another's index.
+/// Indexes earlier releases wrote elsewhere under `indexes/`, by Wayfinder 0.2
 /// (`indexes/<sha256 of the root>/`) or by an ObjectBox-backed store
 /// (`indexes/<bundle key>/<configuration key>/` with a `.lock` beside it),
 /// are never read, changed or deleted; the first [index] after an upgrade
 /// builds anew.
 ///
-/// An index is a sequence of immutable generations,
-/// `generation-<id>/{snapshot.json, vectors.f32}`, and a `current` pointer
+/// An index is a sequence of immutable `generation-<id>` directories
+/// (plain files hold `snapshot.json` and `vectors.f32`), and a `current` pointer
 /// that names the published one. [index] embeds only passages whose inputs
 /// changed, writes a complete generation and then replaces the pointer
 /// atomically, so a failed or cancelled run leaves the previous generation
 /// current. A search reads the pointer and the generation it names, checks
-/// the vectors' checksum, and scores every eligible passage exactly in a
-/// `MemoryStore`. [search] refuses an index that is missing, stale or
-/// incompatible, and never indexes implicitly.
+/// its shape and exactly scores rows returned by its format. [verify] and
+/// [index] additionally check the vector checksum. [search] refuses a
+/// missing, stale or incompatible index, and never indexes implicitly.
 ///
 /// Only writers lock. [index], [forget] and [forgetProjectRoot] hold the
 /// bundle's `writer.lock` (`WayfinderFileLock`), across isolates and
@@ -154,8 +204,8 @@ class WayfinderKnowledgeStore {
   /// A store over [dataDirectory], usually `WayfinderDataDirectory.resolve()`.
   ///
   /// With [retainEncoder], the store opens one encoder on first use and
-  /// keeps it, with each bundle's parsed snapshot up to [cacheBytes] of
-  /// snapshot text, for the operations that follow. Operations still run
+  /// keeps it, with parsed snapshots and detached verified rows up to
+  /// [cacheBytes], for the operations that follow. Operations still run
   /// concurrently: each call into the shared encoder, a batch of document
   /// embeddings, a query vector or a token count, waits for the one before
   /// it, so a search can run between an index's batches. An operation that
@@ -179,6 +229,11 @@ class WayfinderKnowledgeStore {
   /// A superseded generation stays readable for [gracePeriod] after a newer
   /// one is published, and the next [index] or [prune] after that deletes
   /// it.
+  ///
+  /// The first of [formats] writes new generations. A saved generation opens
+  /// with the first of [formats] whose marker it holds; plain files always
+  /// open. When the write format changes, [index] republishes a current index
+  /// in the new format from its saved rows, without opening an encoder.
   WayfinderKnowledgeStore({
     required this.dataDirectory,
     required this.encoder,
@@ -186,7 +241,15 @@ class WayfinderKnowledgeStore {
     this.cacheBytes = 64 << 20,
     this.gracePeriod = const Duration(minutes: 10),
     this.encoderIdleTimeout,
-  }) {
+    List<GenerationFormat> formats = const [PlainFileGenerationFormat()],
+  }) : _formats = List.unmodifiable([
+         ...formats,
+         if (!formats.any((format) => format is PlainFileGenerationFormat))
+           const PlainFileGenerationFormat(),
+       ]) {
+    if (formats.isEmpty) {
+      throw ArgumentError.value(formats, 'formats', 'must not be empty');
+    }
     if (cacheBytes < 0) {
       throw ArgumentError.value(cacheBytes, 'cacheBytes', 'must not be < 0');
     }
@@ -216,14 +279,15 @@ class WayfinderKnowledgeStore {
   final bool retainEncoder;
   final int cacheBytes;
   final Duration gracePeriod;
+  final List<GenerationFormat> _formats;
 
   /// How long a retained encoder stays open after the last operation that
   /// used it; null keeps it until [dispose] or [releaseEncoder].
   final Duration? encoderIdleTimeout;
 
   // Increment when chunking, snapshot or application input semantics change.
-  // `store` names the generation format. The encoder's identity is part of
-  // the configuration key beside it. The configuration names the llama.cpp
+  // `store` names the canonical record codec, not the selected driver. The
+  // encoder's identity is part of the key beside it. This names the llama.cpp
   // release Wayfinder reviewed, because another llama.cpp build can give the
   // same model other vectors; moving wayfinderLlamaCppRuntime builds every
   // index anew. Version 5 is the first to name it.
@@ -316,12 +380,28 @@ class WayfinderKnowledgeStore {
   /// The saved index of [bundle] compared with the bundle as it is now:
   /// [KnowledgeIndexRefreshing] while another operation indexes or forgets
   /// it. Holds no lock, probing the writer's, and opens no encoder.
-  Future<KnowledgeIndexStatus> status(ProjectBundle bundle) => _admit(() async {
+  Future<KnowledgeIndexStatus> status(ProjectBundle bundle) =>
+      _status(bundle, verify: false);
+
+  /// Assesses the index like [status] and checks every saved vector against
+  /// the record's checksum. Opens no encoder.
+  Future<KnowledgeIndexStatus> verify(ProjectBundle bundle) =>
+      _status(bundle, verify: true);
+
+  Future<KnowledgeIndexStatus> _status(
+    ProjectBundle bundle, {
+    required bool verify,
+  }) => _admit(() async {
     final index = await _namespace(bundle);
     final files = await _inventory(index.root);
     KnowledgeIndexStatus status;
     try {
-      status = _assess(index, files, (await _pin(index))?.saved);
+      final pinned = await _pin(index, verify: verify);
+      try {
+        status = _assess(index, files, pinned?.saved);
+      } finally {
+        await pinned?.reader.close();
+      }
     } on WayfinderException catch (error) {
       if (error.code != 'index-incompatible') rethrow;
       status = KnowledgeIndexIncompatible(error.message);
@@ -366,22 +446,38 @@ class WayfinderKnowledgeStore {
         final inventory = _inventoryHash(files);
         _Pinned? previous;
         try {
-          previous = await _pin(index);
+          if (!force) {
+            previous = await _pin(index, verify: true);
+            await previous?.reader.close();
+          }
         } on WayfinderException {
           // Indexing replaces an incomplete or incompatible saved generation.
         }
-        if (force) {
-          previous = null;
-        } else if (_assess(index, files, previous?.saved)
-            case KnowledgeIndexCurrent(:final warnings)) {
+        if (_assess(index, files, previous?.saved) case KnowledgeIndexCurrent(
+          :final warnings,
+        )) {
+          final current = previous!.format == _formats.first;
+          if (!current) {
+            onProgress?.call(const IndexProgress(IndexPhase.publishing));
+            throwIfCancelled(cancel);
+            await _publishData(
+              index,
+              GenerationData(
+                previous.record,
+                previous.verified!,
+                dimension: previous.saved.dimension,
+              ),
+              cancel,
+            );
+          }
           return WayfinderIndexResult(
             bundle: root,
             index: directory.path,
             embeddedChunks: 0,
             removedChunks: 0,
-            writtenChunks: 0,
+            writtenChunks: current ? 0 : previous.saved.count,
             elapsedMs: watch.elapsedMilliseconds,
-            current: true,
+            current: current,
             warnings: warnings,
           );
         }
@@ -445,7 +541,7 @@ class WayfinderKnowledgeStore {
         }
         onProgress?.call(const IndexProgress(IndexPhase.publishing));
         throwIfCancelled(cancel);
-        final rows = <List<double>>[];
+        final rows = <Float32List>[];
         final inputs = <String>[];
         for (final chunk in fitted.chunks) {
           final vector = await store.getEmbedding(
@@ -459,58 +555,86 @@ class WayfinderKnowledgeStore {
           if (vector == null || input is! String) {
             throw StateError('Indexing left a passage without its vector.');
           }
-          rows.add(vector.vector);
+          rows.add(Float32List.fromList(vector.vector));
           inputs.add(input);
         }
         final dimension = opened.embedder.dimension;
-        final bytes = IndexGeneration.encode(rows, dimension);
-        await directory.create(recursive: true);
-        final staged = await _stageGeneration(directory);
-        var published = false;
-        try {
-          await File(
-            p.join(staged.path, IndexGeneration.vectorsFile),
-          ).writeAsBytes(bytes, flush: true);
-          final record = {
-            'configuration': _configuration,
-            'model': _space,
-            'source': encoder.identity.source,
-            'inventory': inventory,
-            'vectors': {
-              'file': IndexGeneration.vectorsFile,
-              'format': IndexGeneration.format,
-              'dimension': dimension,
-              'count': rows.length,
-              'sha256': IndexGeneration.digest(bytes),
-              'inputs': inputs,
-            },
-            'snapshot': fitted.toMap(),
-          };
-          await File(
-            p.join(staged.path, IndexGeneration.snapshotFile),
-          ).writeAsString(jsonEncode(record), flush: true);
-          await _publish(index, p.basename(staged.path));
-          published = true;
-          await _collectGarbage(index, keep: p.basename(staged.path));
-          return WayfinderIndexResult(
-            bundle: root,
-            index: directory.path,
-            warnings: fitted.diagnostics,
-            embeddedChunks: counts.embeddedChunks,
-            removedChunks: counts.removedChunks,
-            writtenChunks: counts.writtenChunks,
-            elapsedMs: watch.elapsedMilliseconds,
-          );
-        } finally {
-          if (!published && await staged.exists()) {
-            await staged.delete(recursive: true);
-          }
-        }
+        final checksum = IndexGeneration.checksum(rows, dimension);
+        final record = {
+          'configuration': _configuration,
+          'model': _space,
+          'source': encoder.identity.source,
+          'inventory': inventory,
+          'vectors': {
+            'file': IndexGeneration.vectorsFile,
+            'format': IndexGeneration.format,
+            'dimension': dimension,
+            'count': rows.length,
+            'sha256': checksum,
+            'inputs': inputs,
+          },
+          'snapshot': fitted.toMap(),
+        };
+        await _publishData(
+          index,
+          GenerationData(jsonEncode(record), rows, dimension: dimension),
+          cancel,
+        );
+        return WayfinderIndexResult(
+          bundle: root,
+          index: directory.path,
+          warnings: fitted.diagnostics,
+          embeddedChunks: counts.embeddedChunks,
+          removedChunks: counts.removedChunks,
+          writtenChunks: counts.writtenChunks,
+          elapsedMs: watch.elapsedMilliseconds,
+        );
       });
     } finally {
       await lock.release();
     }
   });
+
+  Future<void> _publishData(
+    _Namespace index,
+    GenerationData data,
+    WayfinderCancellation? cancel,
+  ) async {
+    await index.directory.create(recursive: true);
+    final staged = await _stageGeneration(index.directory);
+    final generation = p.basename(staged.path);
+    var published = false;
+    try {
+      await _formats.first.write(staged, data);
+      final pinned = await _readGeneration(
+        index.directory,
+        generation,
+        null,
+        verify: true,
+      );
+      try {
+        if (pinned.format != _formats.first || pinned.record != data.record) {
+          throw _incomplete;
+        }
+      } finally {
+        await pinned.reader.close();
+      }
+      throwIfCancelled(cancel);
+      await _publish(index, generation);
+      published = true;
+      if (retainEncoder &&
+          _closing == null &&
+          data.record.length <= cacheBytes) {
+        final key = await index.directory.resolveSymbolicLinks();
+        _remember(key, data.record, pinned.saved, vectors: pinned.verified);
+      }
+      await _collectGarbage(index, keep: generation);
+    } finally {
+      if (!published && await staged.exists()) {
+        await staged.delete(recursive: true);
+      }
+    }
+  }
 
   /// Searches the saved indexes of [bundles] with one query vector and ranks
   /// their passages together under one [limit], from 1 to 100.
@@ -1443,75 +1567,73 @@ class WayfinderKnowledgeStore {
     Map<String, String> files;
     KnowledgeIndexStatus status;
     bool refreshing;
-    for (var attempt = 0; ; attempt++) {
-      WayfinderException? unusable;
-      try {
-        pinned = await _pin(index);
-      } on WayfinderException catch (error) {
-        if (error.code != 'index-incompatible') rethrow;
-        pinned = null;
-        unusable = error;
-      }
-      files = await _inventory(index.root);
-      status = unusable == null
-          ? _assess(index, files, pinned?.saved)
-          : KnowledgeIndexIncompatible(unusable.message);
-      refreshing =
-          stale == StaleIndexPolicy.serveWhileRefreshing &&
-          await WayfinderFileLock.isHeld(index.writer);
-      if (status is KnowledgeIndexCurrent || refreshing || attempt > 0) break;
-      // A writer may have published, and released its lock, since the read:
-      // read once more when the pointer moved.
-      if (await _pointedGeneration(index) == pinned?.saved.generation) break;
-    }
-    final Set<String> changed;
-    switch (status) {
-      case KnowledgeIndexCurrent():
-        changed = const {};
-      case KnowledgeIndexStale(:final changedPaths) when refreshing:
-        changed = changedPaths.toSet();
-      case KnowledgeIndexMissing() || KnowledgeIndexIncompatible()
-          when refreshing:
-        throw _building;
-      case KnowledgeIndexMissing():
-        throw const WayfinderException('index-missing', 'Index is missing.');
-      case KnowledgeIndexStale():
-        throw const WayfinderException('index-stale', 'Index is stale.');
-      case KnowledgeIndexIncompatible(:final reason):
-        throw WayfinderException('index-incompatible', reason);
-      case KnowledgeIndexRefreshing():
-        throw StateError('An assessment is never refreshing.');
-    }
-    final (:saved, :vectors) = pinned!;
-    final snapshot = saved.snapshot;
-    throwIfCancelled(cancel);
-    final activeEncoder = await encoder();
-    if (activeEncoder.embedder.dimension != saved.dimension) {
-      throw WayfinderException(
-        'index-incompatible',
-        'The saved vectors have ${saved.dimension} dimensions; the encoder '
-            'produces ${activeEncoder.embedder.dimension}.',
-      );
-    }
-    final store = await _memoryOf(pinned, chunks: false);
     try {
-      var response =
-          await KnowledgeIndex.fromSnapshot(
-            snapshot: snapshot,
-            store: store,
-            embedder: activeEncoder.embedder,
-            includeContext: true,
-            bundleRoot: index.root,
-          ).search(
-            query,
-            limit: limit,
-            contextLimit: allContext ? snapshot.conceptPaths.length : null,
-            policy: KnowledgeSearchPolicy(
-              expandRelationships: true,
-              metadataFilter: filters,
-            ),
-            cancel: cancel,
-          );
+      for (var attempt = 0; ; attempt++) {
+        WayfinderException? unusable;
+        try {
+          pinned = await _pin(index);
+        } on WayfinderException catch (error) {
+          if (error.code != 'index-incompatible') rethrow;
+          pinned = null;
+          unusable = error;
+        }
+        files = await _inventory(index.root);
+        status = unusable == null
+            ? _assess(index, files, pinned?.saved)
+            : KnowledgeIndexIncompatible(unusable.message);
+        refreshing =
+            stale == StaleIndexPolicy.serveWhileRefreshing &&
+            await WayfinderFileLock.isHeld(index.writer);
+        if (status is KnowledgeIndexCurrent || refreshing || attempt > 0) break;
+        // A writer may have published, and released its lock, since the read:
+        // read once more when the pointer moved.
+        if (await _pointedGeneration(index) == pinned?.saved.generation) break;
+        await pinned?.reader.close();
+        pinned = null;
+      }
+      final Set<String> changed;
+      switch (status) {
+        case KnowledgeIndexCurrent():
+          changed = const {};
+        case KnowledgeIndexStale(:final changedPaths) when refreshing:
+          changed = changedPaths.toSet();
+        case KnowledgeIndexMissing() || KnowledgeIndexIncompatible()
+            when refreshing:
+          throw _building;
+        case KnowledgeIndexMissing():
+          throw const WayfinderException('index-missing', 'Index is missing.');
+        case KnowledgeIndexStale():
+          throw const WayfinderException('index-stale', 'Index is stale.');
+        case KnowledgeIndexIncompatible(:final reason):
+          throw WayfinderException('index-incompatible', reason);
+        case KnowledgeIndexRefreshing():
+          throw StateError('An assessment is never refreshing.');
+      }
+      final saved = pinned!.saved;
+      final snapshot = saved.snapshot;
+      throwIfCancelled(cancel);
+      final activeEncoder = await encoder();
+      if (activeEncoder.embedder.dimension != saved.dimension) {
+        throw WayfinderException(
+          'index-incompatible',
+          'The saved vectors have ${saved.dimension} dimensions; the encoder '
+              'produces ${activeEncoder.embedder.dimension}.',
+        );
+      }
+      var response = await searchStoredGeneration(
+        snapshot: snapshot,
+        reader: pinned.reader,
+        embedder: activeEncoder.embedder,
+        bundleRoot: index.root,
+        query: query,
+        limit: limit,
+        contextLimit: allContext ? snapshot.conceptPaths.length : null,
+        policy: KnowledgeSearchPolicy(
+          expandRelationships: true,
+          metadataFilter: filters,
+        ),
+        cancel: cancel,
+      );
       if (_inventoryHash(await _inventory(index.root)) !=
           _inventoryHash(files)) {
         throw const WayfinderException(
@@ -1546,8 +1668,12 @@ class WayfinderKnowledgeStore {
         throw WayfinderException('index-incompatible', error.message);
       }
       rethrow;
+    } on FormatException {
+      throw _incomplete;
+    } on GenerationGone {
+      throw _incomplete;
     } finally {
-      await store.close();
+      await pinned?.reader.close();
     }
   }
 
@@ -1583,23 +1709,23 @@ class WayfinderKnowledgeStore {
     );
   }
 
-  /// A [MemoryStore] holding [pinned]'s vectors and, with [chunks], its
+  /// A [MemoryStore] holding [pinned]'s vectors and its
   /// passages with a hash of the embedding input each vector encodes, which
   /// `KnowledgeIndex.synchronize` compares to reuse it.
-  Future<MemoryStore> _memoryOf(_Pinned pinned, {bool chunks = true}) async {
-    final (:saved, :vectors) = pinned;
+  Future<MemoryStore> _memoryOf(_Pinned pinned) async {
+    final saved = pinned.saved;
+    final vectors = pinned.verified!;
     final store = MemoryStore();
     final snapshot = saved.snapshot.chunks;
     await store.replaceChunks(
       chunks: [
-        if (chunks)
-          for (final (i, chunk) in snapshot.indexed)
-            chunk.copyWith(
-              metadata: {
-                ...chunk.metadata,
-                'okfEmbeddingInputs': {saved.model: saved.inputs[i]},
-              },
-            ),
+        for (final (i, chunk) in snapshot.indexed)
+          chunk.copyWith(
+            metadata: {
+              ...chunk.metadata,
+              'okfEmbeddingInputs': {saved.model: saved.inputs[i]},
+            },
+          ),
       ],
       embeddings: [
         for (final (i, chunk) in snapshot.indexed)
@@ -1663,13 +1789,14 @@ class WayfinderKnowledgeStore {
   /// is read again after each of [_pointerRetryDelays]. A generation that
   /// cannot be read while the pointer still names it is
   /// `index-incompatible`.
-  Future<_Pinned?> _pin(_Namespace index) async {
+  Future<_Pinned?> _pin(_Namespace index, {bool verify = false}) async {
     final directory = index.directory;
     final cacheKey = retainEncoder && await directory.exists()
         ? await directory.resolveSymbolicLinks()
         : null;
     final pointer = File(p.join(directory.path, _currentName));
     String? unreadable;
+    WayfinderException failure = _incomplete;
     var attempts = 0;
     var refused = 0;
     while (attempts < _readAttempts) {
@@ -1690,47 +1817,93 @@ class WayfinderKnowledgeStore {
       }
       await generationPinned[this]?.call(generation);
       try {
-        return await _readGeneration(directory, generation, cacheKey);
-      } on _GenerationUnreadable {
+        return await _readGeneration(
+          directory,
+          generation,
+          cacheKey,
+          verify: verify,
+        );
+      } on GenerationGone {
         unreadable = generation;
+        failure = _incomplete;
+      } on _MissingFormatMarker catch (error) {
+        unreadable = generation;
+        failure = error;
       }
     }
     _cachedSavedIndexes.remove(cacheKey);
-    throw _incomplete;
+    throw failure;
   }
 
-  /// [generation]'s record and verified vectors. Throws
-  /// [_GenerationUnreadable] when a file cannot be read, and
-  /// `index-incompatible` when one is not what the record says.
   Future<_Pinned> _readGeneration(
     Directory directory,
     String generation,
-    String? cacheKey,
-  ) async {
-    final String text;
-    final Uint8List bytes;
-    try {
-      text = await File(
-        p.join(directory.path, generation, IndexGeneration.snapshotFile),
-      ).readAsString();
-      bytes = await File(
-        p.join(directory.path, generation, IndexGeneration.vectorsFile),
-      ).readAsBytes();
-    } on FileSystemException {
-      throw const _GenerationUnreadable();
+    String? cacheKey, {
+    required bool verify,
+  }) async {
+    final folder = Directory(p.join(directory.path, generation));
+    GenerationFormat? selected;
+    for (final format in _formats) {
+      if (await File(p.join(folder.path, format.marker)).exists()) {
+        selected = format;
+        break;
+      }
     }
+    if (selected == null) {
+      _cachedSavedIndexes.remove(cacheKey);
+      if (!await folder.exists()) throw const GenerationGone();
+      final markers = _formats.map(
+        (format) => '${format.name}: ${format.marker}',
+      );
+      throw _MissingFormatMarker(markers.join(', '));
+    }
+    GenerationReader? reader;
     try {
+      reader = await selected.open(folder);
+      final text = await reader.record();
       final saved = _parseRecord(generation, text, cacheKey);
+      if (await reader.rowCount() != saved.count) throw _incomplete;
+      if (reader.dimension != saved.dimension) throw _incomplete;
+      final List<Float32List>? vectors;
+      if (verify) {
+        final stored = await reader.vectors();
+        if (stored.length != saved.count ||
+            IndexGeneration.checksum(stored, saved.dimension) !=
+                saved.checksum) {
+          throw _incomplete;
+        }
+        vectors = [for (final row in stored) Float32List.fromList(row)];
+      } else {
+        vectors = null;
+      }
+      if (cacheKey != null) {
+        if (vectors != null && _closing == null && text.length <= cacheBytes) {
+          _remember(cacheKey, text, saved, vectors: vectors);
+        } else {
+          // Plain files scan every allowed row anyway, so verified rows in
+          // memory replace the file reads. Other formats keep their own search.
+          final cached = _cachedSavedIndexes[cacheKey];
+          if (selected is PlainFileGenerationFormat &&
+              cached != null &&
+              identical(saved, cached.index) &&
+              cached.vectors != null) {
+            reader = _VerifiedRowsReader(reader, cached.vectors!);
+          }
+        }
+      }
       return (
         saved: saved,
-        vectors: IndexGeneration.decode(
-          bytes,
-          dimension: saved.dimension,
-          count: saved.count,
-          checksum: saved.checksum,
-        ),
+        format: selected,
+        reader: reader,
+        record: text,
+        verified: vectors,
       );
+    } on GenerationGone {
+      await reader?.close();
+      _cachedSavedIndexes.remove(cacheKey);
+      rethrow;
     } on Object {
+      await reader?.close();
       _cachedSavedIndexes.remove(cacheKey);
       throw _incomplete;
     }
@@ -1765,7 +1938,9 @@ class WayfinderKnowledgeStore {
         Map<String, Object?>.from(snapshot),
         linkFields: wayfinderLinkFields,
       );
-      if (count != parsed.chunks.length || inputs.length != count) {
+      if (dimension <= 0 ||
+          count != parsed.chunks.length ||
+          inputs.length != count) {
         throw const FormatException('The record does not match its vectors.');
       }
       final saved = (
@@ -1790,8 +1965,17 @@ class WayfinderKnowledgeStore {
 
   /// Caches [saved] while its UTF-8 [text] fits [cacheBytes], evicting the
   /// oldest entries.
-  void _remember(String key, String text, _SavedIndex saved) {
-    final bytes = utf8.encode(text).length;
+  void _remember(
+    String key,
+    String text,
+    _SavedIndex saved, {
+    List<Float32List>? vectors,
+  }) {
+    _cachedSavedIndexes.remove(key);
+    final textBytes = utf8.encode(text).length;
+    final vectorBytes = (vectors?.length ?? 0) * saved.dimension * 4;
+    if (textBytes + vectorBytes > cacheBytes) vectors = null;
+    final bytes = textBytes + (vectors == null ? 0 : vectorBytes);
     if (bytes > cacheBytes) return;
     var total = _cachedSavedIndexes.values.fold<int>(
       0,
@@ -1803,7 +1987,12 @@ class WayfinderKnowledgeStore {
       );
       if (evicted != null) total -= evicted.bytes;
     }
-    _cachedSavedIndexes[key] = (text: text, bytes: bytes, index: saved);
+    _cachedSavedIndexes[key] = (
+      text: text,
+      bytes: bytes,
+      index: saved,
+      vectors: vectors,
+    );
   }
 
   /// Every file of the bundle at [root] as okf's loader sees it: a SHA-256

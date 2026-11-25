@@ -108,6 +108,11 @@ jobs:
         working-directory: packages/wayfinder_embeddings
       - if: matrix.sdk == 'stable'
         run: dart format --output=none --set-exit-if-changed .
+        working-directory: packages/wayfinder_storage_testing
+      - run: dart test
+        working-directory: packages/wayfinder_storage_testing
+      - if: matrix.sdk == 'stable'
+        run: dart format --output=none --set-exit-if-changed .
         working-directory: packages/wayfinder_cli
       - run: dart test
         working-directory: packages/wayfinder_cli

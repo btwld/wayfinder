@@ -1213,7 +1213,7 @@ class _IndexKnowledge extends WayfinderKnowledgeStore {
   final forced = <bool>[];
 
   @override
-  Future<KnowledgeIndexStatus> status(ProjectBundle bundle) async {
+  Future<KnowledgeIndexStatus> verify(ProjectBundle bundle) async {
     if (state == 'busy') {
       return const KnowledgeIndexRefreshing(KnowledgeIndexCurrent());
     }

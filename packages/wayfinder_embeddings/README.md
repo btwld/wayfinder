@@ -108,7 +108,8 @@ try {
   `packages/wayfinder_cli/lib/src/native_runtime.dart`. Everything a host
   names, `BaseEmbedder`, `Chunk` and `KnowledgeSearchResponse` included,
   comes from `knowledge_store.dart`.
-- **Operations.** `status` compares the saved index with the bundle without
+- **Operations.** `verify` checks the complete vector checksum without loading
+  an encoder. `status` compares the saved index with the bundle without
   an encoder: `KnowledgeIndexMissing`, `KnowledgeIndexCurrent` (with its
   input warnings), `KnowledgeIndexStale` (the changed paths) or
   `KnowledgeIndexIncompatible` (why). `index` returns at once for a current
@@ -176,7 +177,7 @@ try {
   directory. The bundle key hashes the canonical root, so worktrees and copies
   index separately; the configuration key hashes the chunking, snapshot and
   storage configuration and the llama.cpp release `wayfinderLlamaCppRuntime`
-  names with the encoder identity, so another model, chunker, format or
+  names with the encoder identity, so another model, chunker, record codec or
   runtime release never reads or replaces an index ([what a host
   checks](#local-model-and-builds)). The directory holds
   `writer.lock`, a `current` pointer, and immutable generations,
@@ -184,9 +185,9 @@ try {
   (the magic `WFVF32\0\x01`, then the dimension and row count as
   little-endian 32-bit integers) followed by one little-endian float32 row per
   snapshot chunk, in chunk order. The record names the vectors' dimension, row
-  count, SHA-256 and a hash of the input each row embeds. Before scoring, a
-  reader checks the vector shape and file digest and the input-hash list's
-  shape; it does not recompute those input hashes from the snapshot. Indexing
+  count, SHA-256 and a hash of the input each row embeds. Before scoring, the
+  store checks the record and vector shape, not the digest. Publication,
+  reuse by `index`, and `verify` hash the canonical float32 rows. Indexing
   uses them to decide which vectors it can reuse. A 0.2 index, at
   `indexes/<sha256 of the root>/`, and an
   ObjectBox-backed one from an earlier 0.3 build, at
@@ -215,7 +216,8 @@ try {
   operation opens and disposes its own encoder; with it, operations share one
   encoder, one call into it at a time (a batch of passages, a query vector or
   a token count), so a search runs between an index's batches, and share the
-  parsed snapshots, up to `cacheBytes`. Only a failure in the encoder, or an
+  parsed snapshots and detached verified rows, up to `cacheBytes`. Readers
+  close after each operation even when those rows are cached. Only a failure in the encoder, or an
   unexpected error, discards the shared encoder and snapshots; a stale, busy
   or cancelled operation keeps them. `releaseEncoder()` disposes the shared
   encoder once the operations using it finish and keeps the snapshots, and
@@ -293,6 +295,22 @@ Alternative model weights stay in benchmark tooling:
 `tool/prepare_benchmark_models.dart --output=DIR` downloads each one straight
 into `DIR/<model-id>/`, never into the Wayfinder data directory. The
 application model remains Arctic XS Q8_0.
+
+## Write a storage driver
+
+A storage driver implements `GenerationFormat` and `GenerationReader` from
+`package:wayfinder_embeddings/knowledge_store.dart`. Their doc comments state
+the contract. Register a driver with the `formats` argument of
+`WayfinderKnowledgeStore`, whose doc comment says which format writes and
+which formats read. Wayfinder computes the final score of every row a reader
+returns, so search results are the same in every format.
+
+Drivers that also back `BaseStore` implement `BaseStore.findSimilar` for its
+search.
+
+The workspace-only `wayfinder_storage_testing` package tests a driver.
+`runGenerationFormatContract` and `runKnowledgeStoreSuites` take a
+`GenerationFormatHarness`, and `runStoreContract` takes a `BaseStore`.
 
 ## Command-line entry points
 

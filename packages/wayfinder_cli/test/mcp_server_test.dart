@@ -17,6 +17,96 @@ import 'package:wayfinder_embeddings/testing.dart';
 import 'support.dart';
 
 void main() {
+  test('CLI publishes the plain-file marker that MCP reads', () async {
+    final temp = await Directory.systemTemp.createTemp('wayfinder-cli-to-mcp-');
+    addTearDown(() => temp.delete(recursive: true));
+    final bundle = await Directory(p.join(temp.path, 'knowledge')).create();
+    for (final file in Directory(
+      'test/fixtures/knowledge',
+    ).listSync().whereType<File>()) {
+      await file.copy(p.join(bundle.path, p.basename(file.path)));
+    }
+    WayfinderKnowledgeStore store({bool retain = false}) =>
+        WayfinderKnowledgeStore(
+          dataDirectory: Directory(p.join(temp.path, 'data')),
+          encoder: DeterministicEncoderProvider(
+            create: () => DeterministicTestEmbedder(vectorOf: keywordVector),
+          ),
+          retainEncoder: retain,
+          formats: const [PlainFileGenerationFormat()],
+        );
+    final output = <String>[];
+    final errors = <String>[];
+    final cliStore = store();
+    addTearDown(cliStore.dispose);
+    final cli = WayfinderCli(
+      out: output.add,
+      err: errors.add,
+      knowledge: () => cliStore,
+      notices: false,
+    );
+    expect(await cli.run(['index', bundle.path, '--output=json']), 0);
+    final index = (jsonDecode(output.single) as Map)['index'] as String;
+    final generation = File(p.join(index, 'current')).readAsStringSync();
+    expect(
+      File(
+        p.join(index, generation, const PlainFileGenerationFormat().marker),
+      ).existsSync(),
+      isTrue,
+    );
+    output.clear();
+    expect(await cli.run(['status', bundle.path, '--output=json']), 0);
+    expect(jsonDecode(output.single), {
+      'bundle': bundle.path,
+      'status': 'current',
+      'warnings': [],
+    });
+
+    final incoming = StreamController<List<int>>();
+    final outgoing = StreamController<List<int>>();
+    final transport = IOStreamTransport(
+      stream: incoming.stream,
+      sink: outgoing.sink,
+    );
+    final serving = WayfinderMcpServer(
+      rootPath: bundle.path,
+      knowledge: store(retain: true),
+    ).serve(transport: transport);
+    final client = McpClient(
+      const Implementation(name: 'wayfinder-test', version: '1.0.0'),
+    );
+    await client.connect(
+      IOStreamTransport(stream: outgoing.stream, sink: incoming.sink),
+    );
+    try {
+      final found = await client.callTool(
+        const CallToolRequest(
+          name: 'search',
+          arguments: {'query': 'password', 'limit': 1},
+        ),
+      );
+      expect(found.isError, isNot(true));
+      expect(
+        (found.content.single as TextContent).text,
+        contains('recovery.md:'),
+      );
+    } finally {
+      await client.close();
+      await transport.close();
+      await serving;
+    }
+    final vectors = File(
+      p.join(index, generation, IndexGeneration.vectorsFile),
+    );
+    final bytes = await vectors.readAsBytes();
+    bytes[bytes.length - 1] ^= 1;
+    await vectors.writeAsBytes(bytes);
+    output.clear();
+    expect(await cli.run(['status', bundle.path, '--output=json']), 0);
+    expect((jsonDecode(output.single) as Map)['status'], 'incompatible');
+    expect(errors, isEmpty);
+  });
+
   test('search serves the published index with notices while another '
       'process indexes, and index reports busy', () async {
     final temp = await Directory.systemTemp.createTemp('wayfinder-mcp-read-');

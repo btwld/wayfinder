@@ -8,7 +8,7 @@
 /// hooks:
 ///
 /// ```sh
-/// dart compile kernel test/support/search_loop.dart --output=search_loop.dill
+/// dart compile kernel lib/src/search_loop.dart --output=search_loop.dill
 /// dart search_loop.dill <data> <bundle root> <reference>
 /// ```
 ///
@@ -22,7 +22,6 @@ import 'dart:io';
 
 import 'package:wayfinder/project.dart';
 import 'package:wayfinder_embeddings/knowledge_store.dart';
-import 'package:wayfinder_embeddings/src/store/generation_pin_hook.dart';
 import 'package:wayfinder_embeddings/testing.dart';
 
 /// The model every encoder of the concurrency test reports.
@@ -41,6 +40,7 @@ String searchFingerprint(KnowledgeBundleSearch result) {
 /// result with [reference], and calls [onRefresh] the first time a search
 /// reports a refresh in progress.
 Future<Map<String, Object?>> searchLoop({
+  GenerationFormat format = const PlainFileGenerationFormat(),
   required String data,
   required String root,
   required String reference,
@@ -49,6 +49,7 @@ Future<Map<String, Object?>> searchLoop({
 }) async {
   final store = WayfinderKnowledgeStore(
     dataDirectory: Directory(data),
+    formats: [format],
     encoder: DeterministicEncoderProvider(model: concurrencyModel),
   );
   final bundle = ProjectBundle('knowledge', 'knowledge', root);

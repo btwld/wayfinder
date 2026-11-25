@@ -112,11 +112,17 @@ Adoption therefore can remain incomplete after a failed final gate, and existing
 
 ## Immutable plain-file index generations (ADR-0022, ADR-0026)
 
-Date: 2026-10-24; model lookup correction 2026-10-26.
+Date: 2026-10-24; model lookup correction 2026-10-26; storage/search amendment 2026-11-25.
 
-Replace application ObjectBox indexes with immutable snapshot/vector generations and an atomically replaced current pointer so readers can use the previous publication during refresh without a writer lock; the old HNSW index was unused, so exhaustive scoring preserves ranking behavior.
+Replace application ObjectBox indexes with immutable snapshot/vector generations and an atomically replaced current pointer so readers can use the previous publication during refresh without a writer lock. The plain-file implementation still scans eligible rows exactly; other formats can supply candidates as specified in [Storage and search abstraction](#storage-and-search-abstraction).
 Search exposes refresh/source-change notices and refuses stale snapshots outside refresh, while every index/prune collects expired generations (ADR-0026); duplicate storage during staging, rebuilds on upgrade, deferred Windows deletion and filesystem-dependent locking remain costs.
 [Storage and source notices](packages/wayfinder_cli/README.md#local-storage) remain operational docs, and [model lookup](packages/wayfinder_cli/README.md#embedding-model-lookup) uses explicit override, installed bundle, working/source development models, then verified cache, correcting ADR-0026's former order.
+
+## Storage and search abstraction
+
+Date: 2026-11-25. Amends ADR-0022.
+
+A registered generation format stores each immutable generation and returns its nearest rows. The core keeps publication, the canonical record and its checksum, and computes every final score, so ranking is the same in every format. This lets a database driver search a generation without a full scan. Plain files stay the default and always open. The core hashes every vector when it publishes, reuses or verifies a generation, not on each search; the cost is that a vector changed on disk after publication goes unnoticed until the next verification. See [Write a storage driver](packages/wayfinder_embeddings/README.md#write-a-storage-driver).
 
 ## Shared effective vocabulary (ADR-0027)
 

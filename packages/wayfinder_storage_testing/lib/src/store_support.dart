@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:path/path.dart' as p;
 import 'package:wayfinder/project.dart';
@@ -14,12 +15,20 @@ Future<ProjectBundle> copyStoreBundle(
 ]) async {
   final directory = await Directory(p.join(parent.path, name)).create();
   for (final file in Directory(
-    p.join('test', 'fixtures', 'store-bundle'),
+    p.join(await embeddingsRoot(), 'test', 'fixtures', 'store-bundle'),
   ).listSync().whereType<File>()) {
     await file.copy(p.join(directory.path, p.basename(file.path)));
   }
   return bundleAt(directory.path);
 }
+
+Future<String> embeddingsRoot() async => p.dirname(
+  p.dirname(
+    (await Isolate.resolvePackageUri(
+      Uri.parse('package:wayfinder_embeddings/testing.dart'),
+    ))!.toFilePath(),
+  ),
+);
 
 /// The project bundle at [path], named after its folder.
 ProjectBundle bundleAt(String path) => ProjectBundle(

@@ -1,6 +1,6 @@
 name: wayfinder_embeddings
 description: Chunking, embedding, and retrieval for Wayfinder and other Dart applications.
-version: 0.5.0-beta.1
+version: 0.6.0-beta.1
 repository: https://github.com/btwld/wayfinder/tree/main/packages/wayfinder_embeddings
 issue_tracker: https://github.com/btwld/wayfinder/issues
 topics:
@@ -31,4 +31,5 @@ dev_dependencies:
   lints: ^6.0.0
   objectbox_generator: ^6.0.0-preview.6
   test: ^1.26.3
+  wayfinder_storage_testing: any
   yaml: ^3.1.3

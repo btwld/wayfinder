@@ -375,9 +375,13 @@ once in a directory of its own.
 An index directory holds `writer.lock`, a `current` pointer and immutable
 generations, `generation-<id>/` with `snapshot.json` (the indexed bundle text,
 passages, metadata and the record of the vectors) and `vectors.f32` (a header,
-then one little-endian float32 row per passage, checked against the SHA-256 the
-record names). There is no database: search loads the generation it reads and
-scores every eligible passage exactly.
+then one little-endian float32 row per passage). There is no database: search
+reads the generation and scores every eligible passage exactly.
+
+`wayfinder status <bundle> [--output=json]` checks the saved record and every
+vector against its checksum without loading a model. It reports `missing`,
+`current`, `stale`, `incompatible`, or `refreshing`. Search checks the saved
+record and vector shape but does not verify the full checksum.
 
 Wayfinder 0.2 kept one index per bundle directly under `indexes/<bundle-key>/`,
 with a different bundle key, and earlier 0.3 builds kept ObjectBox databases in

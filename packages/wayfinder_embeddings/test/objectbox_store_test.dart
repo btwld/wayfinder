@@ -11,9 +11,9 @@ import 'package:wayfinder_embeddings/objectbox.g.dart';
 import 'package:wayfinder_embeddings/src/storage/embedding_entities.dart';
 import 'package:wayfinder_embeddings/src/storage/objectbox_entities.dart';
 import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
+import 'package:wayfinder_storage_testing/wayfinder_storage_testing.dart';
 
 import 'support/objectbox_0_2_0_fixture.dart';
-import 'support/store_contract.dart';
 
 /// A store that `wayfinder_embeddings` 0.2.0 wrote; see its README.
 const _fixture020 = 'test/fixtures/objectbox-0.2.0';

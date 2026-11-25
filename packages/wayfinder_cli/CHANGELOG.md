@@ -1,3 +1,8 @@
+# Unreleased
+
+- Add `wayfinder status <bundle>` to verify the saved index without loading a
+  model. CLI and MCP continue to use plain-file generations by default.
+
 # 0.5.0-beta.1
 
 - Depends on `ack` and `ack_mcp_dart` `^2.0.0-beta.2`, and tests with `okf`

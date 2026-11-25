@@ -167,7 +167,7 @@ class WayfinderCli {
     final parser = ArgParser()
       ..addFlag('help', abbr: 'h', negatable: false)
       ..addFlag('version', negatable: false);
-    for (final name in ['validate', 'index', 'search']) {
+    for (final name in ['validate', 'index', 'status', 'search']) {
       final command = ArgParser()
         ..addFlag('help', abbr: 'h', negatable: false)
         ..addOption(
@@ -400,6 +400,7 @@ class WayfinderCli {
           'Usage: wayfinder <command> [arguments]\n\n'
           '  validate <bundle>          Check OKF and the selected Profile\n'
           '  index [<bundle>]          Update saved local embeddings for changes\n'
+          '  status <bundle>           Verify the saved index without loading a model\n'
           '  query [<bundle>]        Query concept metadata or a saved view\n'
           '  search [<bundle>] <query> Search project bundles or an explicit path\n'
           '  graph <bundle>             Project the ordinary OKF relationship graph\n'
@@ -418,7 +419,7 @@ class WayfinderCli {
       if (command == null || options.rest.isNotEmpty) {
         throw const WayfinderException(
           'usage',
-          'Choose validate, index, search, query, graph, get, upgrade, mcp, skills, setup or '
+          'Choose validate, index, status, search, query, graph, get, upgrade, mcp, skills, setup or '
               'update. Run wayfinder --help.',
         );
       }
@@ -655,6 +656,21 @@ class WayfinderCli {
       }
       final output = command.option('output');
       final json = output == 'json';
+      if (name == 'status') {
+        if (json) structuredOutput = 'json';
+        final knowledge = _knowledge();
+        final state = await knowledge.verify(_explicitBundle(bundle));
+        final report = _indexStatus(state);
+        if (json) {
+          _json({'bundle': bundle, ...report});
+        } else {
+          final detail = report['reason'];
+          _out(
+            'Index for ${_safe(bundle)}: ${report['status']}.${detail == null ? '' : ' $detail'}',
+          );
+        }
+        return 0;
+      }
       if (name == 'validate') {
         structuredOutput = output == 'text' ? null : output;
         final rawConfig = command.option('config');
@@ -692,7 +708,7 @@ class WayfinderCli {
           // An invalid explicit model fails here, as in the foreground,
           // rather than reporting a current index or a background failure.
           await verifyModelOverride();
-          var state = switch (await knowledge.status(_explicitBundle(bundle))) {
+          var state = switch (await knowledge.verify(_explicitBundle(bundle))) {
             KnowledgeIndexRefreshing() => 'running',
             KnowledgeIndexCurrent() when !force => 'current',
             _ => 'started',
@@ -993,6 +1009,27 @@ class WayfinderCli {
   void _json(Object? value) =>
       _out(const JsonEncoder.withIndent('  ').convert(value));
 }
+
+Map<String, Object?> _indexStatus(KnowledgeIndexStatus state) =>
+    switch (state) {
+      KnowledgeIndexMissing() => {'status': 'missing'},
+      KnowledgeIndexCurrent(:final warnings) => {
+        'status': 'current',
+        'warnings': [for (final warning in warnings) warning.toJson()],
+      },
+      KnowledgeIndexStale(:final changedPaths) => {
+        'status': 'stale',
+        'changedPaths': changedPaths,
+      },
+      KnowledgeIndexIncompatible(:final reason) => {
+        'status': 'incompatible',
+        'reason': reason,
+      },
+      KnowledgeIndexRefreshing(:final previous) => {
+        'status': 'refreshing',
+        'previous': _indexStatus(previous),
+      },
+    };
 
 /// The machine-wide right to run a background index: an exclusive
 /// [WayfinderFileLock] on `background-index.lock` in the Wayfinder data
