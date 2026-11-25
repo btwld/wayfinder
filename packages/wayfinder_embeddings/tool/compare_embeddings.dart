@@ -22,6 +22,7 @@ Future<void> runComparison(
   List<String> args, {
   Map<String, workflow.StoreFactory> additionalStores = const {},
   String fixtures = 'fixtures/corpus',
+  Directory? goldenRoot,
 }) async {
   final stores = <String, workflow.StoreFactory>{
     'memory': (_) => MemoryStore(),
@@ -233,7 +234,7 @@ Future<void> runComparison(
     stdout.writeln('\n2. Validating chunk manifest against golden snapshot...');
     try {
       await workflow.validateAgainstGolden(
-        packageRoot: config.packageRoot,
+        packageRoot: goldenRoot ?? config.packageRoot,
         fixturesDir: config.fixturesRoot,
         preview: preview,
       );
