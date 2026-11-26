@@ -10,8 +10,10 @@ import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
 import 'drift_database.dart';
 import 'float32_vector.dart';
 
-/// Persistent SQLite storage that ranks matching embeddings with sqlite-vec.
+/// Persistent SQLite storage for chunks and embeddings.
 ///
+/// [findSimilar] is an exact full scan of the matching source and model,
+/// scored with sqlite-vec's cosine distance function; there is no KNN index.
 /// Native I/O runs on a background isolate. The store preserves the float32
 /// embeddings it writes and refuses unsupported schemas.
 /// Writes throw [ArgumentError] if an embedding's chunk is missing from both

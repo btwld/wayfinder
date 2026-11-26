@@ -463,8 +463,9 @@ It collapses repeated contexts to the first child hit.
 - `MemoryStore` is the default. It performs exact brute-force vector search and
   accepts any embedding dimension. Use it for tests, evaluation, and
   single-repository search.
-- `DriftStore` persists chunks and embeddings in SQLite and ranks them with
-  sqlite-vec. See [wayfinder_drift](../wayfinder_drift/README.md).
+- `DriftStore` persists chunks and embeddings in SQLite. Search is an exact
+  full scan scored with sqlite-vec's cosine distance function. See
+  [wayfinder_drift](../wayfinder_drift/README.md).
 - The optional [wayfinder_objectbox](../wayfinder_objectbox/README.md) package
   provides a persistent `BaseStore` for callers that need one.
 

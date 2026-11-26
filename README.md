@@ -83,8 +83,7 @@ Exact metadata views and saved query IDs are documented in [structured queries](
 
 `packages/` holds core validation/projects and portable/native knowledge entry
 points, CLI/MCP, embeddings, the SQLite storage driver, an optional ObjectBox
-store, storage driver tests,
-and the Flutter reader SDK.
+store, storage driver tests and the Flutter reader SDK.
 `profiles/bitwild/` owns Bitwild's rules, skill and history; `skills/` is generic.
 `implementation/` and `docs/schemas/` hold the engine contract. `examples/` holds
 illustrative bundles; `docs/` holds guides and decisions; `tool/` holds tooling.
