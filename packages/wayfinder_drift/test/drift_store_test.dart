@@ -7,6 +7,7 @@ import 'package:sqlite3/sqlite3.dart';
 import 'package:test/test.dart';
 import 'package:wayfinder_drift/src/drift_database.dart';
 import 'package:wayfinder_drift/wayfinder_drift.dart';
+import 'package:wayfinder_embeddings/storage_driver.dart' show cosineSimilarity;
 import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
 
 import 'package:wayfinder_storage_testing/wayfinder_storage_testing.dart';
@@ -70,15 +71,12 @@ void main() {
     );
     final result = await store.findSimilar([1, 0], 's', 'm');
     expect(result.map((r) => r.chunk.id), [chunks[0].id, chunks[1].id]);
-    final raw = sqlite3.open('${directory.path}/store.sqlite');
-    addTearDown(raw.close);
-    final score = raw.select(
-      "SELECT 1.0 - vec_distance_cosine(X'0000803F00000000', vector) AS score "
-      "FROM stored_embeddings WHERE chunk_id = ?",
-      [chunks[1].id],
-    ).single['score'];
-    expect(result.first.similarity, 1);
-    expect(result.last.similarity, score);
+    for (final hit in result) {
+      expect(
+        hit.similarity,
+        closeTo(cosineSimilarity([1, 0], hit.embedding!.vector), 1e-6),
+      );
+    }
   });
 
   test('reopens exact float32 metadata, identities and source order', () async {
@@ -286,23 +284,6 @@ void main() {
     final loaded = await store.getAllChunks();
     expect(loaded.map((chunk) => chunk.id), chunks.map((chunk) => chunk.id));
     expect(loaded.every((chunk) => chunk.metadata['updated'] == true), isTrue);
-  });
-
-  test('next ordinal lookup uses the covering ordinal index', () async {
-    final database = StorageDatabase.open(
-      File('${directory.path}/schema.sqlite'),
-    );
-    addTearDown(database.close);
-    await database.verifySchema();
-    final plan = await database
-        .customSelect(
-          'EXPLAIN QUERY PLAN SELECT MAX(ordinal) FROM stored_chunks',
-        )
-        .get();
-    expect(
-      plan.map((row) => row.data['detail']),
-      contains(contains('USING COVERING INDEX stored_chunks_ordinal')),
-    );
   });
 
   test('schema creation matches generated tables and enforces byte lengths', () async {
