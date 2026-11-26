@@ -116,27 +116,6 @@ void main() {
   }
 
   test(
-    'search releases the preflight reader before loading the encoder',
-    () async {
-      final result = await store.index(bundle);
-      final tracked = TrackingGenerationFormat(format);
-      final service = use(
-        [tracked],
-        beforeOpen: () async {
-          expect(tracked.opens, 1);
-          expect(tracked.closes, 1);
-          expect(tracked.nearestCounts, isEmpty);
-        },
-      );
-      final found = await service.searchBundle(bundle, 'password recovery');
-      expect(found.matches, isNotEmpty);
-      expect(tracked.nearestCounts, isNotEmpty);
-      expect(tracked.opens, tracked.closes);
-      expect(currentGeneration(result.index).existsSync(), isTrue);
-    },
-  );
-
-  test(
     'a missing sqlite-vec asset refuses opens and preserves the old publication',
     () async {
       final result = await store.index(bundle);

@@ -11,9 +11,7 @@
   checks the complete vector checksum without opening an encoder.
 - `status` and search no longer hash every vector. They check the record, the
   row count and the row width. Call `verify` to check the vector checksum.
-- Release preflight readers before encoder acquisition, then pin the generation
-  used for searching. Preserve format diagnostics on an incompatible index and
-  expose shared scoring and validation to storage drivers.
+- Preserve format diagnostics on an incompatible index.
 - `storage_driver.dart` exports `vectorScale` and `encodeFloat32` for float32
   storage drivers.
 - Report format initialization failures during publication as
