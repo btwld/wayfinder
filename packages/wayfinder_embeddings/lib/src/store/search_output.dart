@@ -16,14 +16,12 @@ typedef MarkdownPassage = ({
   bool sourceChanged,
 });
 
-typedef _PassageKey = (String, String, int, int);
+/// A passage's bundle and chunk ID. Fitted fragments of one long line share
+/// a path and line range, so the range cannot tell passages apart.
+typedef _PassageKey = (String, String);
 
-_PassageKey _keyOf(MarkdownPassage passage) => (
-  passage.prefix,
-  passage.chunk.sourcePath,
-  passage.chunk.lineStart,
-  passage.chunk.lineEnd,
-);
+_PassageKey _keyOf(MarkdownPassage passage) =>
+    (passage.prefix, passage.chunk.id);
 
 String _escapeControlChars(String value) => value.replaceAllMapped(
   RegExp(r'[\x00-\x08\x0b-\x1f\x7f-\x9f]'),
