@@ -231,14 +231,14 @@ jobs:
         working-directory: .
       - run: dart run tool/evaluate_knowledge_cases.dart "$RUNNER_TEMP/knowledge-cases.json"
         shell: bash
-      # Each gate checks judged relevance and compares the store's findSimilar
-      # results with exact cosine ranking.
+      # Memory gates every OKF run against the baseline. Drift and ObjectBox
+      # run only findSimilar, gated against the same values and exact ranking.
       - name: Gate OKF retrieval on the memory store
         shell: bash
         run: >-
           dart run tool/evaluate_okf_retrieval.dart --no-timing
           --split=development,held_out
-          --baselines=fixtures/benchmarks/okf_retrieval
+          --baseline=fixtures/benchmarks/okf_retrieval_baseline.json
           --output="$RUNNER_TEMP/okf-memory.json"
       - name: Gate OKF retrieval on the Drift store
         shell: bash
@@ -248,7 +248,7 @@ jobs:
         run: >-
           dart run tool/evaluate_okf_retrieval.dart --stores=drift --no-timing
           --split=development,held_out
-          --baselines=../wayfinder_embeddings/fixtures/benchmarks/okf_retrieval
+          --baseline=../wayfinder_embeddings/fixtures/benchmarks/okf_retrieval_baseline.json
           --output="$RUNNER_TEMP/okf-drift.json"
       - name: Gate the 160-query comparison fixture on both splits
         shell: bash
@@ -379,7 +379,7 @@ jobs:
       - run: >-
           dart run tool/evaluate_okf_retrieval.dart --stores=objectbox
           --no-timing --split=development,held_out
-          --baselines=../wayfinder_embeddings/fixtures/benchmarks/okf_retrieval
+          --baseline=../wayfinder_embeddings/fixtures/benchmarks/okf_retrieval_baseline.json
           --output="$RUNNER_TEMP/okf-objectbox.json"
         working-directory: packages/wayfinder_objectbox
         env:
