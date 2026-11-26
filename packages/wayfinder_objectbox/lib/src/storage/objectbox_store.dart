@@ -232,10 +232,7 @@ class ObjectBoxStore extends BaseStore {
       query.close();
     }
 
-    // Scalar filters apply to ANN candidates in the tested native runtime.
-    // If other models or orphaned vectors exhaust that pool, exact scoring
-    // within the selected identity prevents false empty/underfilled results.
-    // Widening ANN alone did not recover the duplicate-heavy regression fixture.
+    // Filters apply after ANN; score the identity exactly when they leave too few hits.
     if (results.length < limit) {
       final fallback = _embeddingBox.query(identity).build();
       try {
