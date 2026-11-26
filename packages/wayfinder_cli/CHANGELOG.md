@@ -1,7 +1,5 @@
 # Unreleased
 
-- Set the retrieval library floor to `wayfinder_embeddings` 0.7.0-beta.1.
-
 - Add `wayfinder status <bundle>` to verify the saved index without loading a
   model. CLI and MCP continue to use plain-file generations by default.
 

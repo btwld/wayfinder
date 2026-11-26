@@ -16,19 +16,13 @@ workspace's paired runtime.
 
 ## Saved indexes
 
-The shipped API is a `BaseStore` for chunks and embeddings. The saved-index
-experiment used a 50-candidate HNSW pool without a filter, a 100-candidate pool
-with half the rows allowed, and exact scoring by row ID with 5% allowed. The
-narrow-filter route uses ID reads when the requested pool exceeds half the
-index or HNSW yields too few eligible rows. HNSW is approximate. The
+This package has no saved-index format for `WayfinderKnowledgeStore`. A format
+must return the exact nearest rows and leave a generation unchanged when it
+reads it, as the
 [nearest-row contract](../wayfinder_embeddings/lib/src/store/generation_format.dart)
-requires exact results and a read-only generation. ObjectBox changed its lock
-file even after the read-only store closed on Linux x64, and exactness would
-require scanning eligible rows whenever the candidate pool lacked a guarantee.
-
-The knowledge store's configuration key excludes the write format. Two
-`WayfinderKnowledgeStore` instances with different write formats on one data
-directory republish each other's index on every index run.
+states. HNSW is approximate, so exact answers needed a scan of the eligible
+rows in the tested workload. ObjectBox also changed its `lock.mdb` file during
+a read-only open on Linux x64.
 
 ## Development
 

@@ -1,4 +1,4 @@
-/// Shared validation, identity keys, and scoring for embedding store drivers.
+/// Shared validation, identity keys and cosine scoring for storage drivers.
 library;
 
 export 'src/storage/embedding_key.dart' show embeddingIdentityKey;
