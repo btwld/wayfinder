@@ -293,7 +293,7 @@ void main() {
       File('${directory.path}/schema.sqlite'),
     );
     addTearDown(database.close);
-    await database.verifyIntegrity();
+    await database.verifySchema();
     final plan = await database
         .customSelect(
           'EXPLAIN QUERY PLAN SELECT MAX(ordinal) FROM stored_chunks',
@@ -310,7 +310,7 @@ void main() {
       File('${directory.path}/schema.sqlite'),
     );
     addTearDown(database.close);
-    await database.verifyIntegrity();
+    await database.verifySchema();
     expect(
       (await database.customSelect('PRAGMA application_id').getSingle())
           .data

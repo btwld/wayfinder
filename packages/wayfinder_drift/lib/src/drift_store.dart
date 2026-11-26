@@ -13,7 +13,7 @@ import 'float32_vector.dart';
 /// Persistent SQLite storage that ranks matching embeddings with sqlite-vec.
 ///
 /// Native I/O runs on a background isolate. The store preserves the float32
-/// embeddings it writes and refuses unsupported or corrupt schemas.
+/// embeddings it writes and refuses unsupported schemas.
 /// Writes throw [ArgumentError] if an embedding's chunk is missing from both
 /// the database and the batch.
 class DriftStore extends BaseStore {
@@ -32,7 +32,7 @@ class DriftStore extends BaseStore {
       File.fromUri(folder.uri.resolve('store.sqlite')),
     );
     try {
-      await database.verifyIntegrity();
+      await database.verifySchema();
       return DriftStore._(database, folder.path);
     } catch (_) {
       await database.close();

@@ -82,15 +82,8 @@ class StorageDatabase extends _$StorageDatabase {
     },
   );
 
-  Future<void> verifyIntegrity() async {
-    final integrity = await customSelect('PRAGMA integrity_check').get();
-    if (integrity.length != 1 ||
-        integrity.single.data.values.single != 'ok' ||
-        (await customSelect('PRAGMA foreign_key_check').get()).isNotEmpty) {
-      throw const FormatException('Database failed integrity checks.');
-    }
-    // The file marker identifies our format; typed projections also reject
-    // missing/renamed columns before a store escapes to its caller.
+  /// Rejects a marked file whose tables lack a declared column.
+  Future<void> verifySchema() async {
     for (final table in allTables) {
       await (selectOnly(table)
             ..addColumns(table.$columns)
