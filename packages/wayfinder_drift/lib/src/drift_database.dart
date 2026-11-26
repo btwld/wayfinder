@@ -36,6 +36,7 @@ class StoredChunks extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+@TableIndex(name: 'stored_embeddings_model', columns: {#source, #model})
 class StoredEmbeddings extends Table {
   TextColumn get chunkId =>
       text().references(StoredChunks, #id, onDelete: KeyAction.cascade)();
