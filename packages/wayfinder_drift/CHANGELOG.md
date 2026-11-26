@@ -4,3 +4,4 @@
   search through sqlite-vec v0.1.9.
 - Add `DriftStore` for mutable chunk and embedding storage with native
   source- and model-filtered cosine ranking.
+- Report a missing embedding chunk as `ArgumentError` and roll back the batch.

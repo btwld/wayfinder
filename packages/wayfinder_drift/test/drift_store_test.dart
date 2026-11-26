@@ -167,21 +167,35 @@ void main() {
       );
       expect(await store.getAllChunks(), isEmpty);
     }
+    final orphan = Embedding(
+      chunkId: 'missing',
+      source: 's',
+      modelName: 'm',
+      vector: [1],
+    );
+    final missingChunk = throwsA(
+      isA<ArgumentError>()
+          .having((error) => error.name, 'name', 'chunkId')
+          .having((error) => error.invalidValue, 'chunk ID', orphan.chunkId),
+    );
+    await expectLater(store.storeEmbedding(orphan), missingChunk);
     await expectLater(
       store.storeBatch(
         chunks: [chunk],
         embeddings: [
           Embedding(
-            chunkId: 'missing',
+            chunkId: chunk.id,
             source: 's',
             modelName: 'm',
             vector: [1],
           ),
+          orphan,
         ],
       ),
-      sqliteConstraint(787),
+      missingChunk,
     );
     expect(await store.getAllChunks(), isEmpty);
+    expect(await store.getAllEmbeddings(), isEmpty);
   });
 
   test(

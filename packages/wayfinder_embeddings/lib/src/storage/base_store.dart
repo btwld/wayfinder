@@ -6,6 +6,9 @@ import '../models/search_result.dart';
 ///
 /// A store is responsible for persisting chunks and embeddings, and for
 /// retrieving them for search and other operations.
+///
+/// For portable writes, store each embedding's chunk first or include it in
+/// the same batch. Handling an embedding with a missing chunk is driver-defined.
 abstract class BaseStore {
   /// Stores a chunk.
   ///

@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:drift/drift.dart';
+import 'package:drift/isolate.dart' show DriftRemoteException;
+import 'package:sqlite3/sqlite3.dart' show SqlExtendedError, SqliteException;
 import 'package:wayfinder_embeddings/storage_driver.dart';
 import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
 
@@ -12,6 +14,8 @@ import 'float32_vector.dart';
 ///
 /// Native I/O runs on a background isolate. The store preserves the float32
 /// embeddings it writes and refuses unsupported or corrupt schemas.
+/// Writes throw [ArgumentError] if an embedding's chunk is missing from both
+/// the database and the batch.
 class DriftStore extends BaseStore {
   DriftStore._(this._database, this.directory);
 
@@ -121,18 +125,33 @@ class DriftStore extends BaseStore {
             );
       }
       for (final (i, embedding) in embeddings.indexed) {
-        await _database
-            .into(_database.storedEmbeddings)
-            .insertOnConflictUpdate(
-              StoredEmbeddingsCompanion.insert(
-                chunkId: embedding.chunkId,
-                source: embedding.source,
-                model: embedding.modelName,
-                dimension: embedding.vector.length,
-                vector: vectors[i],
-                scaleForSearch: Value(!hasBoundedCosineScale(embedding.vector)),
-              ),
+        try {
+          await _database
+              .into(_database.storedEmbeddings)
+              .insertOnConflictUpdate(
+                StoredEmbeddingsCompanion.insert(
+                  chunkId: embedding.chunkId,
+                  source: embedding.source,
+                  model: embedding.modelName,
+                  dimension: embedding.vector.length,
+                  vector: vectors[i],
+                  scaleForSearch: Value(
+                    !hasBoundedCosineScale(embedding.vector),
+                  ),
+                ),
+              );
+        } on DriftRemoteException catch (error) {
+          if (error.remoteCause case SqliteException(
+            extendedResultCode: SqlExtendedError.SQLITE_CONSTRAINT_FOREIGNKEY,
+          )) {
+            throw ArgumentError.value(
+              embedding.chunkId,
+              'chunkId',
+              'must refer to an existing chunk or a chunk in the same batch',
             );
+          }
+          rethrow;
+        }
       }
       for (final id in removeChunkIds) {
         await (_database.delete(
