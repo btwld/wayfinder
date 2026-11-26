@@ -750,19 +750,23 @@ dart run tool/compare_embeddings.dart \
 The gate allows absolute drops of 0.05 Recall@10 and 0.03 nDCG@10 by default.
 Update goldens with `UPDATE_GOLDENS=1` only after reviewing the content change.
 
-The OKF fixture gate checks each store's baseline on both splits:
+The OKF fixture gate checks the memory store's runs against one baseline on
+both splits. Any value below its baseline fails, including a single lost
+question:
 
 ```bash
 dart run tool/evaluate_okf_retrieval.dart --no-timing \
   --split=development,held_out \
-  --baselines=fixtures/benchmarks/okf_retrieval \
+  --baseline=fixtures/benchmarks/okf_retrieval_baseline.json \
   --output=comparison_results/okf-memory.json
 ```
 
 Run the same command from `packages/wayfinder_drift` or
 `packages/wayfinder_objectbox` with `--stores=drift` or `--stores=objectbox`,
-`--baselines=../wayfinder_embeddings/fixtures/benchmarks/okf_retrieval` and
+`--baseline=../wayfinder_embeddings/fixtures/benchmarks/okf_retrieval_baseline.json` and
 `WAYFINDER_EMBEDDING_MODEL=../wayfinder_embeddings/models/embedding.gguf`.
+Those stores run only `findSimilar/*`, gated against the same values and exact
+ranking.
 
 The 160-query comparison fixture gate runs one split per process:
 

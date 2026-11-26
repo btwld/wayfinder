@@ -59,6 +59,6 @@ The OKF retrieval gate loads the model. Prepare it with
 WAYFINDER_EMBEDDING_MODEL=../wayfinder_embeddings/models/embedding.gguf \
   dart run tool/evaluate_okf_retrieval.dart --stores=drift --no-timing \
   --split=development,held_out \
-  --baselines=../wayfinder_embeddings/fixtures/benchmarks/okf_retrieval \
+  --baseline=../wayfinder_embeddings/fixtures/benchmarks/okf_retrieval_baseline.json \
   --output=okf-drift.json
 ```

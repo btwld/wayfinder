@@ -12,20 +12,22 @@ import 'package:wayfinder_embeddings/storage_driver.dart' show cosineSimilarity;
 import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
 
 import 'src/metric_baseline.dart';
+import 'src/ranking_metrics.dart';
 
 /// Evaluates each component against fixed, passage-level judgments. Run the
 /// development split before selecting defaults; inspect held-out results later.
 ///
 /// `knowledge/*` runs search through [KnowledgeIndex], which scores stored
-/// vectors exactly in Dart. `findSimilar/*` runs query the same vectors through
-/// the store's own [BaseStore.findSimilar], without scope or policy, and
-/// compare each result list with exact cosine ranking.
+/// vectors exactly in Dart, so only the memory store runs them. `findSimilar/*`
+/// runs query the same vectors through each store's own
+/// [BaseStore.findSimilar], without scope or policy, and compare each result
+/// list with exact cosine ranking.
 Future<void> main(List<String> args) => evaluate(args);
 
 /// Result-list cutoff of the `findSimilar/*` runs.
 const findSimilarLimit = 10;
 
-const _gatedMetrics = ['recall', 'mrr', 'exactRecall'];
+const _gatedMetrics = ['recall', 'mrr'];
 
 Future<void> evaluate(
   List<String> args, {
@@ -45,13 +47,14 @@ Future<void> evaluate(
     ..addOption('output', mandatory: true)
     ..addOption('stores', defaultsTo: stores.keys.join(','))
     ..addOption(
-      'baselines',
-      help: 'Directory of <store>.json baselines to check against.',
+      'baseline',
+      help: 'Baseline file of judged metrics to check every store against.',
     )
     ..addFlag(
-      'update-baselines',
+      'update-baseline',
       negatable: false,
-      help: 'Write the measured values to --baselines instead of checking.',
+      help:
+          "Write the memory store's values to --baseline instead of checking.",
     )
     ..addFlag('timing', defaultsTo: true, help: 'Measure warm query latency.');
   final options = parser.parse(args);
@@ -64,9 +67,12 @@ Future<void> evaluate(
   if (selectedStores.any((kind) => !stores.containsKey(kind))) {
     throw ArgumentError('--stores accepts ${stores.keys.join(',')}');
   }
-  final baselines = options.option('baselines');
-  if (options.flag('update-baselines') && baselines == null) {
-    throw ArgumentError('--update-baselines requires --baselines.');
+  final baseline = options.option('baseline');
+  final update = options.flag('update-baseline');
+  if (update && (baseline == null || !selectedStores.contains('memory'))) {
+    throw ArgumentError(
+      '--update-baseline requires --baseline and the memory store.',
+    );
   }
   final queryText = await File('$fixture/queries.json').readAsString();
   final data = jsonDecode(queryText) as Map<String, Object?>;
@@ -134,9 +140,17 @@ Future<void> evaluate(
           final passages = {
             for (final chunk in snapshot.chunks) chunk.id: chunk,
           };
+          int relevant(Map<String, Object?> row) => snapshot.chunks
+              .where(
+                (chunk) => (row['support']! as List).any(
+                  (support) =>
+                      supportsClaim(chunk, support as Map<String, Object?>),
+                ),
+              )
+              .length;
           for (final split in splits) {
             for (final config in _configs.where(
-              (config) => config.context == contextual,
+              (config) => kind == 'memory' && config.context == contextual,
             )) {
               final rows = <Map<String, Object?>>[];
               final times = <double>[];
@@ -171,10 +185,11 @@ Future<void> evaluate(
                   rows.add({
                     'id': row['id'],
                     'group': row['group'],
-                    ..._judge(
+                    ...judgeRanking(
                       [for (final hit in response.context) hit.result.chunk],
-                      row,
+                      (row['support']! as List).cast(),
                       cutoff: limit,
+                      relevant: relevant(row),
                     ),
                     'context': [
                       for (final hit in response.context)
@@ -243,10 +258,11 @@ Future<void> evaluate(
                 rows.add({
                   'id': row['id'],
                   'group': row['group'],
-                  ..._judge(
+                  ...judgeRanking(
                     [for (final hit in hits) hit.chunk],
-                    row,
+                    (row['support']! as List).cast(),
                     cutoff: findSimilarLimit,
+                    relevant: relevant(row),
                   ),
                   'exactRecall':
                       hits.where((hit) => top.contains(hit.chunk.id)).length /
@@ -294,19 +310,32 @@ Future<void> evaluate(
     await output.writeAsString(
       '${const JsonEncoder.withIndent('  ').convert(report)}\n',
     );
-    if (baselines != null) {
-      for (final kind in selectedStores) {
-        final file = File(p.join(baselines, '$kind.json'));
-        final current = _gated(report, runs[kind]!);
-        if (options.flag('update-baselines')) {
-          await writeBaseline(file, current, identity: _identity);
-          stdout.writeln('Updated ${file.path}');
-        } else {
-          final failures = compareWithBaseline(
-            jsonDecode(await file.readAsString()) as Map<String, Object?>,
-            current,
-            identity: _identity,
-          );
+    if (baseline != null) {
+      final file = File(baseline);
+      if (update) {
+        await writeBaseline(
+          file,
+          _gated(report, runs['memory']!),
+          identity: _identity,
+        );
+        stdout.writeln('Updated ${file.path}');
+      } else {
+        final recorded =
+            jsonDecode(await file.readAsString()) as Map<String, Object?>;
+        for (final kind in selectedStores) {
+          final failures = [
+            ...compareWithBaseline(
+              kind == 'memory' ? recorded : _findSimilarOnly(recorded),
+              _gated(report, runs[kind]!),
+              identity: _identity,
+            ),
+            for (final MapEntry(key: split, value: named)
+                in runs[kind]!.entries)
+              for (final MapEntry(key: name, value: run) in named.entries)
+                if (_aggregate(run)['exactRecall'] case final num exact
+                    when exact != 1)
+                  '$split $name exactRecall: $exact != 1',
+          ];
           for (final failure in failures) {
             stderr.writeln('$kind $failure');
           }
@@ -372,45 +401,6 @@ const _configs = [
   ),
 ];
 
-/// Judges [ranked] against the query's supports. A passage is relevant when
-/// it contains a support that no earlier passage contained.
-Map<String, Object?> _judge(
-  List<Chunk> ranked,
-  Map<String, Object?> query, {
-  required int cutoff,
-}) {
-  final supports = (query['support']! as List).cast<Map<String, Object?>>();
-  if (supports.isEmpty) {
-    return {'top1': null, 'recall': null, 'rr': null, 'ndcg': null};
-  }
-  double gain(int rank) => math.ln2 / math.log(rank + 1);
-  final found = <Map<String, Object?>>{};
-  int? first;
-  var dcg = 0.0;
-  for (final (i, chunk) in ranked.take(cutoff).indexed) {
-    final matched = supports.where(
-      (support) =>
-          chunk.sourcePath == support['path'] &&
-          chunk.content.contains(support['contains']! as String),
-    );
-    if (matched.isEmpty) continue;
-    first ??= i + 1;
-    if (found.containsAll(matched)) continue;
-    found.addAll(matched);
-    dcg += gain(i + 1);
-  }
-  var ideal = 0.0;
-  for (var rank = 1; rank <= math.min(supports.length, cutoff); rank++) {
-    ideal += gain(rank);
-  }
-  return {
-    'top1': first == 1,
-    'recall': found.length / supports.length,
-    'rr': first == null ? 0.0 : 1 / first,
-    'ndcg': dcg / ideal,
-  };
-}
-
 Map<String, Object?> _run(
   List<Map<String, Object?>> rows,
   List<double> times, {
@@ -465,6 +455,20 @@ Map<String, Object?> _metrics(List<Map<String, Object?>> rows) {
 
 const _identity = ['model', 'querySha256'];
 
+Map<String, Object?> _aggregate(Object? run) =>
+    (run! as Map<String, Object?>)['aggregate']! as Map<String, Object?>;
+
+/// The `findSimilar/*` runs of [baseline], which every store measures.
+Map<String, Object?> _findSimilarOnly(Map<String, Object?> baseline) => {
+  for (final MapEntry(:key, :value) in baseline.entries)
+    key: _identity.contains(key)
+        ? value
+        : {
+            for (final run in (value! as Map<String, Object?>).entries)
+              if (run.key.startsWith('findSimilar/')) run.key: run.value,
+          },
+};
+
 /// The gated metrics of [runs], keyed by split and run.
 Map<String, Object?> _gated(
   Map<String, Object?> report,
@@ -476,10 +480,7 @@ Map<String, Object?> _gated(
       for (final MapEntry(key: name, value: run) in named.entries)
         name: {
           for (final metric in _gatedMetrics)
-            if (((run! as Map<String, Object?>)['aggregate']!
-                    as Map<String, Object?>)[metric]
-                case final num value)
-              metric: value,
+            if (_aggregate(run)[metric] case final num value) metric: value,
         },
     },
 };

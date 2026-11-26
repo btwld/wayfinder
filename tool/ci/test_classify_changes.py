@@ -313,7 +313,7 @@ class WorkflowContractTest(unittest.TestCase):
             'python3 tool/verify_wayfinder_mcp.py',
             'dart run tool/evaluate_knowledge_cases.dart',
             '--split=development,held_out',
-            '--baselines=fixtures/benchmarks/okf_retrieval',
+            '--baseline=fixtures/benchmarks/okf_retrieval_baseline.json',
             '--stores=drift',
             'dart run tool/benchmark_retrieval.dart',
             '--baseline=fixtures/benchmarks/embedding_comparison_baseline.json',
@@ -332,7 +332,7 @@ class WorkflowContractTest(unittest.TestCase):
         self.assertIn('--stores=objectbox', objectbox)
         self.assertIn('--split=development,held_out', objectbox)
         self.assertIn(
-            '--baselines=../wayfinder_embeddings/fixtures/benchmarks/okf_retrieval',
+            '--baseline=../wayfinder_embeddings/fixtures/benchmarks/okf_retrieval_baseline.json',
             objectbox)
         required = _job_section(ci, 'required-checks:')
         self.assertIn('needs: [changes, test, native-retrieval, native-objectbox]', required)

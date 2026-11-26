@@ -36,11 +36,8 @@ class EmbeddingEntity {
 
   /// 384-dimensional vector payload with HNSW index for fast similarity search.
   ///
-  /// HNSW searches approximate neighbors using cosine distance. On 2,675
-  /// real-model passages, 64 neighbors per node with the default indexing
-  /// search count of 100 returned the exact top 10 most often; raising the
-  /// search count to 200 or 400 with 64 neighbors did not. Changing either
-  /// value rebuilds the index of an existing database when it opens.
+  /// HNSW searches approximate neighbors using cosine distance; changing these
+  /// parameters rebuilds the index of an existing database when it opens.
   @HnswIndex(
     dimensions: 384,
     distanceType: VectorDistanceType.cosine,

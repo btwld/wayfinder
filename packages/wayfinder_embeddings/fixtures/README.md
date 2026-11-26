@@ -39,16 +39,12 @@ fixture's three context slots. `findSimilar/*` runs query the stored body and
 context vectors through the store's own `findSimilar` at ten results, so
 approximate native search is measured, and compare each list with exact cosine
 ranking (`exactRecall`, `maxScoreDelta`). Both report recall, MRR, nDCG and
-top-1. The Drift and ObjectBox packages have the same tool for their stores.
-The 37 passages are fewer than ObjectBox's candidate floor, so the fixture checks
-the ObjectBox result path but cannot exercise its HNSW approximation.
+top-1. The Drift and ObjectBox packages have the same tool for their stores;
+it runs only their `findSimilar/*` runs, because `knowledge/*` scores the same
+vectors in Dart. The 37 passages are fewer than ObjectBox's candidate floor, so
+the fixture checks the ObjectBox result path but cannot exercise its HNSW
+approximation.
 See the [evaluation guide](../README.md#evaluation).
-
-The protocol at `7728c1f` records dense combined development recall@3 of 100%.
-The current 94% comes from the labelled `okf-context-v2` input of `9891dba`: it
-moves `guidance/queue-retry.md` 0.0015 cosine ahead of `guidance/payments.md`
-for the `negation` question, and the declared link from `queue-retry.md` then
-takes the last context slot.
 
 ## knowledge_retrieval/
 
@@ -72,23 +68,8 @@ the CLI assembles it; raw matches rank the same query without links or
 governing sources. It reports recall@3, recall@10, MRR and first-result
 correctness for the 60 answerable questions of a split. For the 20
 unanswerable questions it counts those that still returned candidates and
-records each query's top similarity. With `--iterations=0` it skips the latency loops.
-
-The [protocol at `4ebf6a6^`](https://github.com/btwld/wayfinder/blob/4ebf6a6%5E/docs/wayfinder_embeddings_comparison.md)
-recorded held-out dense context results of 50/60 first passages, 88.3%
-recall@3, 91.7% recall@10 and MRR 0.863, with candidates for every
-unanswerable question. On the current `okf-context-v2` passages they are 52/60,
-90.0%, 93.3% and 0.887. Development moved from 52/60, 91.7%, 96.7% and 0.902
-to 50/60, 88.3%, 90.0% and 0.863. Unanswerable questions still all return
-candidates; retrieval does not abstain.
-
-Those figures assembled context from the ten raw matches, as the September
-protocol did. A governing document without a raw match then contributed its
-first passage rather than its best-scoring one, which matched one held-out
-judgment by position. Assembled through `search`, held-out context recall@10
-is 91.7% and MRR 0.885. With the knowledge store's second-passage margin,
-held-out context reaches 93.3% recall@3, 96.7% recall@10 and MRR 0.904, and
-development 93.3%, 95.0% and 0.884; the baseline records these values.
+records each query's top similarity. With `--iterations=0` it skips the
+latency loops.
 
 ## samples/
 
@@ -118,14 +99,14 @@ The original run used the recorded truncation policy. Do not present its results
 as current accuracy on a different corpus, chunk policy, or model.
 
 `embedding_comparison_baseline.json` holds the 160-query fixture's raw and
-context recall@3, recall@10 and MRR per split for the memory store, checked
-the same way through `tool/benchmark_retrieval.dart --baseline`.
-
-`okf_retrieval/` holds one baseline per store for the OKF fixture's recall,
-MRR and, for `findSimilar/*` runs, `exactRecall` on both splits, recorded on
-Linux x64. `--baselines` fails a run that drops more than 0.01 below any of
-them, or whose model or queries differ. Refresh a store's file with
-`--update-baselines` only after reviewing the per-query change.
+context recall@3, recall@10 and MRR per split, and
+`okf_retrieval_baseline.json` the OKF fixture's recall and MRR per split and
+run, both recorded with the memory store on Linux x64. `--baseline` fails a
+run whose value falls below its baseline by any amount, so losing a single
+question fails the gate. It also fails on a run or metric missing from either
+side and on a different model or query file. Every OKF `findSimilar/*` run must
+match exact ranking (`exactRecall` 1). Refresh a baseline with
+`--update-baseline` only after reviewing the per-query change.
 
 Obsolete multi-method reports are retired from the active tree. Their committed
 originals remain in Git history; current reproduction uses the [evaluation guide](../README.md#evaluation).

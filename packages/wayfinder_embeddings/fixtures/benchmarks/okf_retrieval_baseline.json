@@ -20,8 +20,7 @@
     },
     "findSimilar/body": {
       "recall": 1.0,
-      "mrr": 0.6862745098039216,
-      "exactRecall": 1.0
+      "mrr": 0.6862745098039216
     },
     "knowledge/context": {
       "recall": 0.9411764705882353,
@@ -37,8 +36,7 @@
     },
     "findSimilar/context": {
       "recall": 1.0,
-      "mrr": 0.7633053221288515,
-      "exactRecall": 1.0
+      "mrr": 0.7633053221288515
     }
   },
   "held_out": {
@@ -60,8 +58,7 @@
     },
     "findSimilar/body": {
       "recall": 1.0,
-      "mrr": 0.890625,
-      "exactRecall": 1.0
+      "mrr": 0.890625
     },
     "knowledge/context": {
       "recall": 1.0,
@@ -77,8 +74,7 @@
     },
     "findSimilar/context": {
       "recall": 1.0,
-      "mrr": 0.90625,
-      "exactRecall": 1.0
+      "mrr": 0.90625
     }
   }
 }
