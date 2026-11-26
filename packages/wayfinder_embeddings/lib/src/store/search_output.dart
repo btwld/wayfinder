@@ -151,6 +151,17 @@ String renderSearchMarkdown({
     }
   }
   final matchedKeys = {for (final m in matches) _keyOf(m)};
+  // A matched document's second passage shares the match reason but is not a
+  // ranked match; it follows the match of its document.
+  final further = <(String, String), List<MarkdownPassage>>{};
+  final seenFurtherKeys = <_PassageKey>{};
+  for (final item in context) {
+    if (item.reason == 'match' &&
+        !matchedKeys.contains(_keyOf(item)) &&
+        seenFurtherKeys.add(_keyOf(item))) {
+      (further[(item.prefix, item.chunk.sourcePath)] ??= []).add(item);
+    }
+  }
   final seenRelatedKeys = <_PassageKey>{};
   final related = [
     for (final item in context)
@@ -163,15 +174,19 @@ String renderSearchMarkdown({
     if (matches.isNotEmpty) ...[
       '## Matches',
       '',
-      for (final match in matches) ...[
-        _renderPassage(
+      for (final match in matches)
+        for (final passage in [
           match,
-          sourcePaths: sourcePaths?.call(match) ?? const {},
-          relations: relationsByKey[_keyOf(match)] ?? const {},
-          escape: escape,
-        ),
-        '',
-      ],
+          ...?further[(match.prefix, match.chunk.sourcePath)],
+        ]) ...[
+          _renderPassage(
+            passage,
+            sourcePaths: sourcePaths?.call(passage) ?? const {},
+            relations: relationsByKey[_keyOf(passage)] ?? const {},
+            escape: escape,
+          ),
+          '',
+        ],
     ],
     if (related.isNotEmpty) ...[
       '## Related Context',

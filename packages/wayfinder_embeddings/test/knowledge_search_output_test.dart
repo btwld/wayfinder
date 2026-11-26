@@ -255,4 +255,52 @@ void main() {
     expect(markdown, contains('Notice: Notice line 1 ## Fake Notice Heading'));
     expect(markdown, isNot(contains('\n## Related Context\n')));
   });
+
+  test("a matched document's second passage renders after its match", () {
+    SearchResult passage(String id, String path, int line, double score) =>
+        SearchResult(
+          chunk: Chunk(
+            id: id,
+            sourcePath: path,
+            lineStart: line,
+            lineEnd: line,
+            content: 'Passage $id.',
+            type: 'paragraph',
+          ),
+          embedding: null,
+          similarity: score,
+        );
+    final first = passage('a1', 'a.md', 3, 0.9);
+    final response = KnowledgeSearchResponse(
+      matches: [first],
+      context: [
+        KnowledgeContextHit(first, 'match'),
+        KnowledgeContextHit(passage('a2', 'a.md', 7, 0.88), 'match'),
+        KnowledgeContextHit(
+          passage('b1', 'b.md', 1, 0.2),
+          'relationship',
+          viaPath: 'a.md',
+        ),
+      ],
+      notices: [],
+    );
+    const bundle = ProjectBundle('knowledge', 'knowledge', '/nonexistent');
+    for (final markdown in [
+      KnowledgeBundleSearch(bundle, response).toMarkdown(),
+      KnowledgeProjectSearch([bundle], [response], limit: 2).toMarkdown(),
+    ]) {
+      final heading = markdown.indexOf('## Matches');
+      final second = markdown.indexOf('Passage a2.');
+      final related = markdown.indexOf('## Related Context');
+      expect(
+        markdown,
+        matches(RegExp(r'### (knowledge/)?a\.md:7-7 \[[^\]]*match\]')),
+      );
+      expect(heading, lessThan(markdown.indexOf('Passage a1.')));
+      expect(markdown.indexOf('Passage a1.'), lessThan(second));
+      expect(second, lessThan(related));
+      expect(related, lessThan(markdown.indexOf('Passage b1.')));
+      expect('Passage a2.'.allMatches(markdown), hasLength(1));
+    }
+  });
 }

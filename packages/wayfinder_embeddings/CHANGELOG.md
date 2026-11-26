@@ -5,8 +5,10 @@
   The context limit counts documents, so the extra passage never displaces
   one. `WayfinderKnowledgeStore` searches with `knowledgeSecondPassageMargin`
   (0.03, selected on the 160-query fixture's development split), and project
-  search keeps each match's second passage. Saved generations read only the
-  rows that can still join a document's passages.
+  search keeps each match's second passage, which search Markdown renders
+  under its match. `contextForMatches` cites the stored chunk for a second
+  passage, as for the best one. Saved generations read only the rows that can
+  still join a document's passages.
 - **BREAKING:** `KnowledgeIndex` and `KnowledgeIndex.fromSnapshot` now default
   `includeContext` to true, so library indexes embed title, description and
   section context like the CLI. On the OKF development fixture this raised
