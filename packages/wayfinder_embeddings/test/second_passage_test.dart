@@ -30,6 +30,9 @@ final _snapshot = KnowledgeSnapshot.fromSources({
   'e.md': _concept('marker-e guidance.'),
 }, bundleId: 'second-passage');
 
+int _ordinal(String marker) =>
+    _snapshot.chunks.indexWhere((chunk) => chunk.content.contains(marker));
+
 void main() {
   late KnowledgeIndex index;
 
@@ -38,15 +41,40 @@ void main() {
     await index.synchronize(_snapshot);
   });
 
-  Future<List<String>> context(double? margin) async => [
-    for (final hit in (await index.search(
-      'query',
-      limit: 2,
-      contextLimit: 3,
-      policy: KnowledgeSearchPolicy(secondPassageMargin: margin),
-    )).context)
-      hit.result.chunk.content,
-  ];
+  Future<List<String>> context(double? margin, {int contextLimit = 3}) async =>
+      [
+        for (final hit in (await index.search(
+          'query',
+          limit: 2,
+          contextLimit: contextLimit,
+          policy: KnowledgeSearchPolicy(secondPassageMargin: margin),
+        )).context)
+          hit.result.chunk.content,
+      ];
+
+  Future<List<Float32List>> rows() async {
+    final embedder = _MarkerEmbedder();
+    return [
+      for (final chunk in _snapshot.chunks)
+        Float32List.fromList(
+          await embedder.generateEmbedding(
+            _snapshot.textFor(chunk, includeContext: true),
+          ),
+        ),
+    ];
+  }
+
+  Future<KnowledgeSearchResponse> searchSaved(_Reader reader, double margin) =>
+      searchStoredGeneration(
+        snapshot: _snapshot,
+        reader: reader,
+        embedder: _MarkerEmbedder(),
+        bundleRoot: '.',
+        query: 'query',
+        limit: 2,
+        contextLimit: 3,
+        policy: KnowledgeSearchPolicy(secondPassageMargin: margin),
+      );
 
   test(
     'a passage within the margin follows its document best passage',
@@ -58,6 +86,14 @@ void main() {
       ]);
     },
   );
+
+  test("a second passage does not take a document's context slot", () async {
+    expect(await context(0.03, contextLimit: 2), [
+      'marker-a1 guidance.',
+      'marker-a2 guidance.',
+      'marker-b guidance.',
+    ]);
+  });
 
   test(
     'without a margin, or outside it, each document keeps one passage',
@@ -74,35 +110,18 @@ void main() {
   test(
     'a saved generation returns the passages of a complete ranking',
     () async {
-      final embedder = _MarkerEmbedder();
-      final rows = [
-        for (final chunk in _snapshot.chunks)
-          Float32List.fromList(
-            await embedder.generateEmbedding(
-              _snapshot.textFor(chunk, includeContext: true),
-            ),
-          ),
-      ];
-      final reader = _Reader(rows);
-      final policy = KnowledgeSearchPolicy(secondPassageMargin: 0.03);
-      final saved = await searchStoredGeneration(
-        snapshot: _snapshot,
-        reader: reader,
-        embedder: embedder,
-        bundleRoot: '.',
-        query: 'query',
-        limit: 2,
-        contextLimit: 3,
-        policy: policy,
-      );
+      final reader = _Reader(await rows());
+      final saved = await searchSaved(reader, 0.03);
       final memory = await index.search(
         'query',
         limit: 2,
         contextLimit: 3,
-        policy: policy,
+        policy: KnowledgeSearchPolicy(secondPassageMargin: 0.03),
       );
-      // The second passage of a.md is outside the first nearest rows.
-      expect(reader.largestNearest, lessThan(rows.length));
+      // The second passage of a.md is outside the first nearest rows, and it is
+      // the only row read after them.
+      expect(reader.largestNearest, lessThan(_snapshot.chunks.length));
+      expect(reader.read, [_ordinal('marker-a2')]);
       expect(
         saved.context.map((hit) => hit.result.chunk.id),
         memory.context.map((hit) => hit.result.chunk.id),
@@ -112,6 +131,21 @@ void main() {
         closeTo(0.975, 1e-6),
         closeTo(0.995, 1e-6),
       ]);
+    },
+  );
+
+  test(
+    'a saved generation reads no row that cannot join the context',
+    () async {
+      // The nearest rows end at 0.993, so no unread row is within 0.005 of the
+      // best passage of a document in context.
+      final reader = _Reader(await rows());
+      final saved = await searchSaved(reader, 0.005);
+      expect(saved.context.map((hit) => hit.result.chunk.content), [
+        'marker-a1 guidance.',
+        'marker-b guidance.',
+      ]);
+      expect(reader.read, isEmpty);
     },
   );
 
@@ -134,12 +168,8 @@ final class _MarkerEmbedder extends BaseEmbedder {
   int get dimension => 384;
 
   @override
-  Future<List<double>> generateEmbedding(String text) async {
-    final score = _scores.entries
-        .firstWhere((entry) => text.contains(entry.key))
-        .value;
-    return [score, math.sqrt(1 - score * score), ...List.filled(382, 0.0)];
-  }
+  Future<List<double>> generateEmbedding(String text) async =>
+      _markerVector(text);
 
   @override
   Future<List<double>> generateQueryVector(String text) async => [
@@ -148,11 +178,19 @@ final class _MarkerEmbedder extends BaseEmbedder {
   ];
 }
 
+List<double> _markerVector(String text) {
+  final score = _scores.entries
+      .firstWhere((entry) => text.contains(entry.key))
+      .value;
+  return [score, math.sqrt(1 - score * score), ...List.filled(382, 0.0)];
+}
+
 final class _Reader implements GenerationReader {
   _Reader(this._rows);
 
   final List<Float32List> _rows;
   int largestNearest = 0;
+  final read = <int>[];
 
   @override
   int get dimension => 384;
@@ -163,9 +201,11 @@ final class _Reader implements GenerationReader {
   @override
   Future<List<Float32List>> vectors() async => _rows;
   @override
-  Future<List<Float32List>> rows(List<int> ordinals) async => [
-    for (final ordinal in ordinals) _rows[ordinal],
-  ];
+  Future<List<Float32List>> rows(List<int> ordinals) async {
+    read.addAll(ordinals);
+    return [for (final ordinal in ordinals) _rows[ordinal]];
+  }
+
   @override
   Future<List<NearRow>> nearest(
     Float32List query,

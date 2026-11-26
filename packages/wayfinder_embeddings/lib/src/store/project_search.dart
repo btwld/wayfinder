@@ -138,8 +138,9 @@ final class KnowledgeCitation {
 /// bundle rank alike.
 final class KnowledgeProjectSearch {
   /// Ranks the per-bundle [responses], one for each of [bundles] in order,
-  /// keeping the best [limit] matches and at most [limit] context passages:
-  /// each match, followed by the relationship context reached from it.
+  /// keeping the best [limit] matches and the context passages of at most
+  /// [limit] documents: each match with any second passage its response
+  /// holds, followed by the relationship context reached from it.
   /// [freshness], when given, has one entry per bundle too.
   factory KnowledgeProjectSearch(
     List<ProjectBundle> bundles,
@@ -172,12 +173,16 @@ final class KnowledgeProjectSearch {
         });
     final ranked = candidates.take(limit).toList();
     final context = <KnowledgeCitation>[];
-    final seen = <(String, String)>{};
+    final documents = <(String, String)>{};
+    final passages = <(String, String)>{};
     void add(KnowledgeCitation citation) {
-      if (context.length < limit &&
-          seen.add((citation.bundle.root, citation.sourcePath))) {
-        context.add(citation);
+      final root = citation.bundle.root;
+      final document = (root, citation.sourcePath);
+      if (!documents.contains(document)) {
+        if (documents.length >= limit) return;
+        documents.add(document);
       }
+      if (passages.add((root, citation.chunk.id))) context.add(citation);
     }
 
     KnowledgeSearchFreshness freshnessOf(ProjectBundle bundle) =>
@@ -192,10 +197,11 @@ final class KnowledgeProjectSearch {
         ),
       );
       final response = responseList[bundleList.indexOf(match.bundle)];
+      final path = match.hit.chunk.sourcePath;
       for (final related in response.context.where(
         (hit) =>
-            hit.reason == 'relationship' &&
-            hit.viaPath == match.hit.chunk.sourcePath,
+            (hit.reason == 'match' && hit.result.chunk.sourcePath == path) ||
+            (hit.reason == 'relationship' && hit.viaPath == path),
       )) {
         add(
           KnowledgeCitation._context(

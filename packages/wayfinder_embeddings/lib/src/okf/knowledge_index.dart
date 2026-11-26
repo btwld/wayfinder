@@ -26,11 +26,9 @@ import 'knowledge_snapshot.dart';
 
 export 'package:wayfinder/project.dart' show KnowledgeMetadataFilter;
 
-/// The [KnowledgeSearchPolicy.secondPassageMargin] of knowledge store searches.
-///
-/// On the 160-query comparison fixture this was the smallest margin with the
-/// best development context recall. It raised held-out context recall@10 from
-/// 0.917 to 0.967 and left the OKF fixture's held-out results unchanged.
+/// The [KnowledgeSearchPolicy.secondPassageMargin] of knowledge store
+/// searches, selected on the development split of the 160-query comparison
+/// fixture.
 const knowledgeSecondPassageMargin = 0.03;
 
 /// Explicit consumer policy, never written into an OKF document.
@@ -89,8 +87,9 @@ class KnowledgeSearchPolicy {
   final Map<String, String> governingSources;
 
   /// Also returns a document's second-best passage, after its best one, when
-  /// it scores within this margin of it. The extra passage uses a context slot.
-  /// Null keeps one passage per document.
+  /// it scores within this margin of it. The context limit counts documents,
+  /// so the extra passage never displaces one. Null keeps one passage per
+  /// document.
   final double? secondPassageMargin;
 
   bool allows(KnowledgeSnapshot snapshot, String path) {
@@ -621,6 +620,7 @@ class KnowledgeIndex {
 
     var count = math.min(limit + 1, allowed.length);
     late List<SearchResult> ranked;
+    late double boundary;
     while (true) {
       final near = await reader.nearest(
         vector,
@@ -636,7 +636,7 @@ class KnowledgeIndex {
       }
       final seen = <int>{};
       ranked = [];
-      var boundary = double.infinity;
+      boundary = double.infinity;
       for (final row in near) {
         if (!allowed.contains(row.ordinal) || !seen.add(row.ordinal)) {
           throw const WayfinderException(
@@ -675,15 +675,23 @@ class KnowledgeIndex {
       budget: budget,
     );
     if (count == allowed.length) return response;
-    // Score every row of the documents in context, so each contributes its
-    // best passages as a complete ranking would. Extra passages only use
-    // budget, so assembling again cannot add a document or change a match.
-    final paths = response.context
-        .map((hit) => hit.result.chunk.sourcePath)
-        .toSet();
-    if (policy.secondPassageMargin == null) {
-      paths.removeAll(response.matches.map((hit) => hit.chunk.sourcePath));
+    // Unscored rows score at most boundary + scoreError. Reading the rest of a
+    // document in context only when one of them could be its best passage or
+    // within the margin of it gives the passages of a complete ranking. The
+    // context limit counts documents, so assembling again cannot add one or
+    // change a match.
+    final margin = policy.secondPassageMargin ?? 0;
+    final best = <String, double>{};
+    for (final hit in ranked) {
+      best.putIfAbsent(hit.chunk.sourcePath, () => hit.similarity);
     }
+    final paths = {
+      for (final hit in response.context)
+        if ((best[hit.result.chunk.sourcePath] ?? double.negativeInfinity) -
+                margin <=
+            boundary + scoreError)
+          hit.result.chunk.sourcePath,
+    };
     final scored = {for (final hit in ranked) hit.chunk.id};
     final ordinals = [
       for (final ordinal in allowed)
@@ -831,6 +839,7 @@ class KnowledgeIndex {
     }
     final context = <KnowledgeContextHit>[];
     final seen = <String>{};
+    var documents = 0;
     // One notice per sentence, in the order first found, with every path
     // that led to it.
     final notices = <String, _NoticeFacts>{};
@@ -853,7 +862,7 @@ class KnowledgeIndex {
       OkfGraphEdge? edge,
       OkfFieldEdge? fieldEdge,
     }) {
-      if (context.length >= budget || seen.contains(path)) return;
+      if (documents >= budget || seen.contains(path)) return;
       final governor = policy.governingSources[path];
       if (governor != null) {
         if (!byPath.containsKey(governor)) {
@@ -866,15 +875,15 @@ class KnowledgeIndex {
           add(governor, 'governing', via: path);
         }
       }
-      if (context.length >= budget || !seen.add(path)) return;
+      if (documents >= budget || !seen.add(path)) return;
       final chunk = byPath[path];
       if (chunk == null) return;
+      documents++;
       for (final hit in [
         best[path] ??
             SearchResult(chunk: chunk, embedding: null, similarity: 0),
         ?second[path],
       ]) {
-        if (context.length >= budget) return;
         context.add(
           KnowledgeContextHit(
             hit,

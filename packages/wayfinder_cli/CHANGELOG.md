@@ -1,8 +1,9 @@
 # 0.5.0-beta.2 (unreleased)
 
-- Search context can include a document's second-best passage after its best
-  one when the two score within 0.03, so the same path can appear twice in
-  `context`. Each extra passage uses a context slot.
+- Search context can follow a document's best passage with its second-best
+  one when the two score within 0.03, so a path can appear twice in
+  `context`. The extra passage takes no other document's place: the documents
+  and linked concepts a search returns are unchanged.
 - Add `wayfinder status <bundle>` to verify the saved index without loading a
   model.
 - CLI and MCP publish SQLite generations and search them through sqlite-vec.
