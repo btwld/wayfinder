@@ -6,6 +6,7 @@ import 'dart:io';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:sqlite3/sqlite3.dart' as sqlite;
+import 'package:wayfinder_embeddings/storage_driver.dart' show vectorScale;
 
 import 'float32_vector.dart';
 import 'sqlite_vec.dart';
@@ -35,6 +36,7 @@ class StoredChunks extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+@TableIndex(name: 'stored_embeddings_model', columns: {#source, #model})
 class StoredEmbeddings extends Table {
   TextColumn get chunkId =>
       text().references(StoredChunks, #id, onDelete: KeyAction.cascade)();
@@ -69,9 +71,9 @@ class StorageDatabase extends _$StorageDatabase {
     );
   }
 
+  // The setup callback rejects any other version before Drift migrates.
   @override
-  // Drift's schema exporter requires a literal getter.
-  int get schemaVersion => 1;
+  int get schemaVersion => _schemaVersion;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -79,27 +81,10 @@ class StorageDatabase extends _$StorageDatabase {
       await m.createAll();
       await customStatement('PRAGMA application_id = $_applicationId');
     },
-    onUpgrade: (m, from, to) async => throw FormatException(
-      'Unsupported storage schema $from (expected $to).',
-    ),
-    beforeOpen: (details) async {
-      if (details.versionNow != schemaVersion) {
-        throw FormatException(
-          'Unsupported storage schema ${details.versionNow}.',
-        );
-      }
-    },
   );
 
-  Future<void> verifyIntegrity() async {
-    final integrity = await customSelect('PRAGMA integrity_check').get();
-    if (integrity.length != 1 ||
-        integrity.single.data.values.single != 'ok' ||
-        (await customSelect('PRAGMA foreign_key_check').get()).isNotEmpty) {
-      throw const FormatException('Database failed integrity checks.');
-    }
-    // The file marker identifies our format; typed projections also reject
-    // missing/renamed columns before a store escapes to its caller.
+  /// Rejects a marked file whose tables lack a declared column.
+  Future<void> verifySchema() async {
     for (final table in allTables) {
       await (selectOnly(table)
             ..addColumns(table.$columns)

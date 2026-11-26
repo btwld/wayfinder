@@ -17,7 +17,9 @@ final store = WayfinderKnowledgeStore(
 
 See [SqliteGenerationFormat](lib/src/sqlite_generation_format.dart) for the
 generation driver and [DriftStore](lib/src/drift_store.dart) for mutable
-`BaseStore` callers. The CLI and MCP server use the generation driver.
+`BaseStore` callers. `DriftStore.findSimilar` is an exact full scan of one
+source and model, scored with sqlite-vec's cosine distance function, not a KNN
+index. The CLI and MCP server use the generation driver.
 
 ## Saved indexes
 

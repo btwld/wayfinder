@@ -959,6 +959,10 @@ abstract class _$StorageDatabase extends GeneratedDatabase {
     'stored_chunks_ordinal',
     'CREATE INDEX stored_chunks_ordinal ON stored_chunks (ordinal)',
   );
+  late final Index storedEmbeddingsModel = Index(
+    'stored_embeddings_model',
+    'CREATE INDEX stored_embeddings_model ON stored_embeddings (source, model)',
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -967,6 +971,7 @@ abstract class _$StorageDatabase extends GeneratedDatabase {
     storedChunks,
     storedEmbeddings,
     storedChunksOrdinal,
+    storedEmbeddingsModel,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([

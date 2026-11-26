@@ -87,11 +87,11 @@ flag enables native inference and makes missing prerequisites fail. Without the
 flag, native-tagged cases skip even when assets are installed. The stable
 native retrieval job also runs the bundle, integration and judged retrieval
 gates, including the OKF fixture gate for the memory and Drift stores and the
-160-query comparison fixture gate. The
-separate stable ObjectBox job runs the
-[driver's tests](../packages/wayfinder_objectbox/README.md#development) and the
-same OKF gate for ObjectBox. These gates compare each store's `findSimilar`
-results with exact ranking against the
+160-query comparison fixture gate. The separate stable ObjectBox job runs the
+[driver's tests](../packages/wayfinder_objectbox/README.md#development), the
+judged retrieval gate through its HNSW search and the same OKF gate for
+ObjectBox. The OKF gates compare each store's `findSimilar` results with exact
+ranking against the
 [committed baselines](../packages/wayfinder_embeddings/fixtures/README.md#benchmarks).
 
 The `wayfinder_drift` lane exercises the SQLite generation and mutable store

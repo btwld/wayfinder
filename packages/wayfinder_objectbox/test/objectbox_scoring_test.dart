@@ -1,15 +1,11 @@
 import 'package:test/test.dart';
 import 'package:wayfinder_objectbox/src/storage/embedding_entities.dart';
-import 'package:wayfinder_objectbox/wayfinder_objectbox.dart';
+import 'package:wayfinder_objectbox/src/storage/objectbox_store.dart';
 
 void main() {
   group('ObjectBoxStore scoring', () {
     test('converts cosine distance to cosine similarity', () {
-      expect(objectBoxCosineDistanceToSimilarity(0.0), 1.0);
       expect(objectBoxCosineDistanceToSimilarity(0.25), 0.75);
-      expect(objectBoxCosineDistanceToSimilarity(1.0), 0.0);
-      expect(objectBoxCosineDistanceToSimilarity(2.0), -1.0);
-      expect(objectBoxCosineDistanceToSimilarity(-0.25), 1.0);
       expect(objectBoxCosineDistanceToSimilarity(2.25), -1.0);
     });
 

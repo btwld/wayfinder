@@ -20,6 +20,7 @@ import '../models/embedding.dart';
 import '../models/search_result.dart';
 import '../storage/base_store.dart';
 import '../store/generation_format.dart';
+import '../util/float32.dart';
 import '../util/similarity.dart';
 import 'knowledge_snapshot.dart';
 
@@ -288,7 +289,7 @@ class KnowledgeIndex {
     required KnowledgeSnapshot snapshot,
     required BaseStore store,
     required this.embedder,
-    this.includeContext = false,
+    this.includeContext = true,
     this.bundleRoot,
   }) : _store = store,
        _reader = null,
@@ -311,7 +312,7 @@ class KnowledgeIndex {
   KnowledgeIndex({
     required BaseStore store,
     required this.embedder,
-    this.includeContext = false,
+    this.includeContext = true,
     this.countTokens,
     this.maxTokens,
     this.bundleRoot,
@@ -328,6 +329,12 @@ class KnowledgeIndex {
   final GenerationReader? _reader;
   BaseStore get store => _store!;
   final BaseEmbedder embedder;
+
+  /// Whether each passage is embedded with its title, description and section
+  /// context (`okf-context-v2`) instead of its body alone (`okf-body-v1`).
+  ///
+  /// An index built with one setting cannot search vectors written with the
+  /// other.
   final bool includeContext;
   final Future<int> Function(String)? countTokens;
   final int? maxTokens;
@@ -506,7 +513,9 @@ class KnowledgeIndex {
         if (stored.length != eligible.length) {
           throw StateError(
             'Dense search requires compatible embeddings for every eligible '
-            'passage. Synchronize the index again.',
+            'passage in the $embeddingModelName space. Synchronize the index '
+            'again, or open it with the includeContext setting and model that '
+            'built it.',
           );
         }
         final vector = await _queryVector(query);
@@ -692,7 +701,7 @@ class KnowledgeIndex {
   static ({Float32List vector, double scoreError}) _nearestQuery(
     List<double> query,
   ) {
-    final scale = query.fold(0.0, (top, value) => math.max(top, value.abs()));
+    final scale = vectorScale(query, 'query');
     var vector = Float32List.fromList(query);
     if (scale == 0 ||
         query.indexed.every((entry) => entry.$2 == vector[entry.$1])) {
@@ -703,10 +712,7 @@ class KnowledgeIndex {
         vector.every((value) => value == 0)) {
       vector = Float32List.fromList(scaled);
     }
-    final roundedScale = vector.fold(
-      0.0,
-      (top, value) => math.max(top, value.abs()),
-    );
+    final roundedScale = vectorScale(vector);
     final rounded = [for (final value in vector) value / roundedScale];
     double norm(List<double> values) =>
         math.sqrt(values.fold(0.0, (sum, value) => sum + value * value));

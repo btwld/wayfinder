@@ -3,6 +3,8 @@ import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 
+import '../util/float32.dart';
+
 /// The canonical float32 row codec and checksum used by the generation record.
 ///
 /// A generation is a directory that never changes once it is published:
@@ -39,7 +41,6 @@ abstract final class IndexGeneration {
     bytes.setRange(0, _magic.length, _magic);
     data.setUint32(8, dimension, Endian.little);
     data.setUint32(12, rows.length, Endian.little);
-    var offset = headerBytes;
     for (final (index, row) in rows.indexed) {
       if (row.length != dimension) {
         throw ArgumentError.value(
@@ -48,23 +49,12 @@ abstract final class IndexGeneration {
           'must be $dimension',
         );
       }
-      var nonzero = false;
-      for (final value in row) {
-        data.setFloat32(offset, value, Endian.little);
-        final stored = data.getFloat32(offset, Endian.little);
-        if (!stored.isFinite) {
-          throw ArgumentError.value(
-            value,
-            'rows[$index]',
-            'must remain finite as float32',
-          );
-        }
-        nonzero |= stored != 0;
-        offset += 4;
-      }
-      if (!nonzero) {
-        throw ArgumentError.value(row, 'rows[$index]', 'must be nonzero');
-      }
+      writeFloat32(
+        data,
+        headerBytes + index * dimension * 4,
+        row,
+        'rows[$index]',
+      );
     }
     return bytes;
   }

@@ -44,8 +44,9 @@ These are consumer choices, not new OKF rules. History queries can select
 historical status instead. Draft and unverified concepts remain eligible.
 
 The adapter requires `embedder:` and applies no implicit knowledge policy.
-Enable `includeContext` for title/heading inputs and supply
-`countTokens`/`maxTokens` from the encoder.
+Passages are embedded with their title, description and section context by
+default (`includeContext: true`), as in the CLI. Supply `countTokens`/`maxTokens`
+from the encoder so the longer inputs fit the model.
 Dense retrieval scores the entire eligible vector set exactly. Search fails
 if an eligible passage lacks a compatible vector. The caller owns the store and encoder.
 Coordinate writes when multiple index instances share a bundle. Search responses
@@ -463,8 +464,9 @@ It collapses repeated contexts to the first child hit.
 - `MemoryStore` is the default. It performs exact brute-force vector search and
   accepts any embedding dimension. Use it for tests, evaluation, and
   single-repository search.
-- `DriftStore` persists chunks and embeddings in SQLite and ranks them with
-  sqlite-vec. See [wayfinder_drift](../wayfinder_drift/README.md).
+- `DriftStore` persists chunks and embeddings in SQLite. Search is an exact
+  full scan scored with sqlite-vec's cosine distance function. See
+  [wayfinder_drift](../wayfinder_drift/README.md).
 - The optional [wayfinder_objectbox](../wayfinder_objectbox/README.md) package
   provides a persistent `BaseStore` for callers that need one.
 

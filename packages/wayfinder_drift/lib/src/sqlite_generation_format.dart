@@ -21,9 +21,8 @@ final class SqliteGenerationFormat implements GenerationFormat {
 
   static const _applicationId = 0x5746474e; // WFGN
   static const _schemaVersion = 1;
-  static const _bounded = ' /* bounded cosine */';
   static final _vectorTable = RegExp(
-    r'^CREATE VIRTUAL TABLE generation_vectors( /\* bounded cosine \*/)? USING vec0\('
+    r'^CREATE VIRTUAL TABLE generation_vectors USING vec0\('
     r'embedding float\[(\d+)\] distance_metric=cosine\)$',
   );
 
@@ -37,8 +36,7 @@ final class SqliteGenerationFormat implements GenerationFormat {
   Future<void> write(Directory staged, GenerationData data) async {
     final target = staged.uri.resolve(marker);
     final file = File.fromUri(staged.uri.resolve('$marker.tmp'));
-    // Store the bounds in the schema declaration, including for empty tables.
-    // The check uses no row or record fields and needs no payload on read.
+    // Readers use native candidates only when every row's scale is bounded.
     final bounded = data.vectors.every(hasBoundedCosineScale);
     final database = _openWithVec(file.path, OpenMode.readWriteCreate);
     try {
@@ -51,16 +49,18 @@ final class SqliteGenerationFormat implements GenerationFormat {
         CREATE TABLE generation_record (
           id INTEGER PRIMARY KEY CHECK (id = 1),
           record_json TEXT NOT NULL,
-          checksum TEXT NOT NULL
+          checksum TEXT NOT NULL,
+          bounded INTEGER NOT NULL CHECK (bounded IN (0, 1))
         )
       ''');
       database.execute(
-        'CREATE VIRTUAL TABLE generation_vectors${bounded ? _bounded : ''} '
+        'CREATE VIRTUAL TABLE generation_vectors '
         'USING vec0(embedding float[${data.dimension}] distance_metric=cosine)',
       );
-      database.execute('INSERT INTO generation_record VALUES (1, ?, ?)', [
+      database.execute('INSERT INTO generation_record VALUES (1, ?, ?, ?)', [
         data.record,
         IndexGeneration.digest(utf8.encode(data.record)),
+        if (bounded) 1 else 0,
       ]);
       final insert = database.prepare(
         'INSERT INTO generation_vectors(rowid, embedding) VALUES (?, ?)',
@@ -100,7 +100,8 @@ final class SqliteGenerationFormat implements GenerationFormat {
       }
       final record = database
           .select(
-            'SELECT record_json, checksum FROM generation_record WHERE id = 1',
+            'SELECT record_json, checksum, bounded FROM generation_record '
+            'WHERE id = 1',
           )
           .single;
       final text = record['record_json'] as String;
@@ -112,8 +113,8 @@ final class SqliteGenerationFormat implements GenerationFormat {
       return _SqliteGenerationReader(
         database,
         text,
-        int.parse(match[2]!),
-        match[1] != null,
+        int.parse(match[1]!),
+        record['bounded'] == 1,
       );
     } catch (_) {
       database.close();
@@ -128,19 +129,26 @@ Database _openWithVec(String path, OpenMode mode) {
   } catch (error) {
     throw GenerationOpenException(sqliteVecLoadError(error).message);
   }
+  final readOnly = mode == OpenMode.readOnly;
   final Database database;
   try {
-    database = sqlite3.open(path, mode: mode);
+    database = readOnly
+        // A published generation never changes, so readers skip locking.
+        ? sqlite3.open(
+            Uri.file(path).replace(query: 'immutable=1').toString(),
+            mode: mode,
+            uri: true,
+          )
+        : sqlite3.open(path, mode: mode);
   } on SqliteException catch (error) {
-    if (mode == OpenMode.readOnly &&
-        error.resultCode == SqlError.SQLITE_CANTOPEN) {
+    if (readOnly && error.resultCode == SqlError.SQLITE_CANTOPEN) {
       // SQLite's SQLITE_CANTOPEN includes the race with generation cleanup.
       throw const GenerationGone();
     }
-    if (error.message.contains('auto-extension')) {
-      throw GenerationOpenException(sqliteVecLoadError(error).message);
-    }
-    rethrow;
+    // Includes a failing sqlite-vec initializer, which SQLite runs on open.
+    throw GenerationOpenException(
+      'Could not open SQLite generation: ${error.message}',
+    );
   }
   try {
     verifySqliteVec(database);
@@ -156,7 +164,7 @@ Uint8List _bytes(Float32List row) =>
 
 Float32List _vector(Row row) {
   final bytes = row['embedding'] as Uint8List;
-  return Float32List.view(bytes.buffer, bytes.offsetInBytes, bytes.length ~/ 4);
+  return Float32List.sublistView(bytes);
 }
 
 final class _SqliteGenerationReader implements GenerationReader {
@@ -235,6 +243,7 @@ final class _SqliteGenerationReader implements GenerationReader {
         ? null
         : jsonEncode(allowed.toList());
     if (count <= _nativeLimit && _bounded && hasBoundedCosineScale(query)) {
+      // Extra candidates let the exact rerank settle native near-ties.
       final k = math.min(
         eligible,
         math.min(_nativeLimit, count + math.max(8, count ~/ 4)),
