@@ -268,7 +268,11 @@ void main() {
     () async {
       final store = MemoryStore();
       final model = CountingEmbedder();
-      final index = KnowledgeIndex(store: store, embedder: model);
+      final index = KnowledgeIndex(
+        store: store,
+        embedder: model,
+        includeContext: false,
+      );
       final first = snapshot({'guide.md': concept('Recovery instructions.')});
       final initial = await index.synchronize(first);
       expect(initial.embeddedChunks, 1);
@@ -312,17 +316,46 @@ void main() {
     },
   );
 
+  test('defaults to contextual inputs and names a mismatched space', () async {
+    final store = MemoryStore();
+    final model = CountingEmbedder();
+    final index = KnowledgeIndex(store: store, embedder: model);
+    final built = snapshot({
+      'guide.md': concept('Stop writers.', fields: 'title: Restore\n'),
+    });
+    await index.synchronize(built);
+    expect(index.embeddingModelName, endsWith(':okf-context-v2'));
+    expect(model.documents.single, startsWith('Title: Restore\n\n'));
+
+    final body = KnowledgeIndex.fromSnapshot(
+      snapshot: built,
+      store: store,
+      embedder: model,
+      includeContext: false,
+    );
+    await expectLater(
+      body.search('Restore'),
+      throwsA(
+        isA<StateError>().having(
+          (error) => error.message,
+          'message',
+          allOf(contains(':okf-body-v1 space'), contains('includeContext')),
+        ),
+      ),
+    );
+  });
+
   test(
     'title changes refresh contextual vectors while body vectors are reusable',
     () async {
       final store = MemoryStore();
       final model = CountingEmbedder();
-      final body = KnowledgeIndex(store: store, embedder: model);
-      final context = KnowledgeIndex(
+      final body = KnowledgeIndex(
         store: store,
         embedder: model,
-        includeContext: true,
+        includeContext: false,
       );
+      final context = KnowledgeIndex(store: store, embedder: model);
       final first = snapshot({
         'guide.md': concept(
           'Stop writers before restoring.',
