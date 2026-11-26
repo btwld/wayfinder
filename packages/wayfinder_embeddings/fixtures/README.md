@@ -86,7 +86,9 @@ Those figures assembled context from the ten raw matches, as the September
 protocol did. A governing document without a raw match then contributed its
 first passage rather than its best-scoring one, which matched one held-out
 judgment by position. Assembled through `search`, held-out context recall@10
-is 91.7% and MRR 0.885; the baseline records these values.
+is 91.7% and MRR 0.885. With the knowledge store's second-passage margin,
+held-out context reaches 93.3% recall@3, 96.7% recall@10 and MRR 0.904, and
+development 93.3%, 95.0% and 0.884; the baseline records these values.
 
 ## samples/
 

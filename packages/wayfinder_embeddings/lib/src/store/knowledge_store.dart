@@ -1634,6 +1634,7 @@ class WayfinderKnowledgeStore {
         policy: KnowledgeSearchPolicy(
           expandRelationships: true,
           metadataFilter: filters,
+          secondPassageMargin: knowledgeSecondPassageMargin,
         ),
         cancel: cancel,
       );

@@ -124,6 +124,12 @@ Date: 2026-11-25. Amends ADR-0022.
 
 A registered generation format stores each immutable generation and returns its nearest rows. The core keeps publication, the canonical record and its checksum, and computes every final score, so ranking is the same in every format. A driver can avoid a full scan when it can guarantee the exact nearest rows. Plain files stay the default and always open. The core hashes every vector when it publishes, reuses or verifies a generation, not on each search; the cost is that a vector changed on disk after publication goes unnoticed until the next verification. See [Write a storage driver](packages/wayfinder_embeddings/README.md#write-a-storage-driver).
 
+## Two passages per document in search context
+
+Date: 2026-11-26.
+
+Let a document contribute its second-best passage when it scores within 0.03 of its best, because half of the 160-query comparison fixture's development recall misses found the right document but chose another of its passages; held-out context recall@10 rose from 0.917 to 0.967 with OKF results unchanged. Each extra passage uses a context slot, so a search can return fewer documents, and saved generations score every row of the documents in context to match a complete ranking.
+
 ## Optional ObjectBox embedding store
 
 Date: 2026-11-25; search tuning amendment 2026-11-26.

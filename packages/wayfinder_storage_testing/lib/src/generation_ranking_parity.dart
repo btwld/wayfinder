@@ -99,7 +99,10 @@ void runGenerationRankingParity(GenerationFormat format) {
       final expected = await index.search(
         'query',
         limit: 2,
-        policy: KnowledgeSearchPolicy(expandRelationships: true),
+        policy: KnowledgeSearchPolicy(
+          expandRelationships: true,
+          secondPassageMargin: knowledgeSecondPassageMargin,
+        ),
       );
       expect(expected.matches.map((hit) => hit.chunk.sourcePath), [
         'beta.md',

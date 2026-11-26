@@ -139,6 +139,7 @@ Future<void> runBenchmark(
             : null,
         expandRelationships: context,
         governingSources: context ? governors : const {},
+        secondPassageMargin: context ? knowledgeSecondPassageMargin : null,
       );
       Future<
         ({

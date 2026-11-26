@@ -1,5 +1,13 @@
 # 0.6.0-beta.1 (unreleased)
 
+- Add `KnowledgeSearchPolicy.secondPassageMargin`: a document's second-best
+  passage follows its best one in context when it scores within the margin.
+  `WayfinderKnowledgeStore` searches with `knowledgeSecondPassageMargin`
+  (0.03), so CLI and MCP context can hold two passages of one document. On the
+  160-query comparison fixture this raised held-out context recall@10 from
+  0.917 to 0.967 and MRR from 0.885 to 0.904; OKF fixture results are
+  unchanged. Saved generations score every row of the documents in context so
+  their passages equal a complete ranking.
 - **BREAKING:** `KnowledgeIndex` and `KnowledgeIndex.fromSnapshot` now default
   `includeContext` to true, so library indexes embed title, description and
   section context like the CLI. On the OKF development fixture this raised

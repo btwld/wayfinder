@@ -26,6 +26,13 @@ import 'knowledge_snapshot.dart';
 
 export 'package:wayfinder/project.dart' show KnowledgeMetadataFilter;
 
+/// The [KnowledgeSearchPolicy.secondPassageMargin] of knowledge store searches.
+///
+/// On the 160-query comparison fixture this was the smallest margin with the
+/// best development context recall. It raised held-out context recall@10 from
+/// 0.917 to 0.967 and left the OKF fixture's held-out results unchanged.
+const knowledgeSecondPassageMargin = 0.03;
+
 /// Explicit consumer policy, never written into an OKF document.
 class KnowledgeSearchPolicy {
   KnowledgeSearchPolicy({
@@ -37,12 +44,21 @@ class KnowledgeSearchPolicy {
     Set<String> pathPrefixes = const {},
     this.expandRelationships = false,
     Map<String, String> governingSources = const {},
+    this.secondPassageMargin,
   }) : statuses = statuses == null ? null : Set.unmodifiable(statuses),
        conceptTypes = Set.unmodifiable(conceptTypes),
        pathPrefixes = Set.unmodifiable(pathPrefixes),
        governingSources = Map.unmodifiable(governingSources) {
     if (currentOnly && asOf == null) {
       throw ArgumentError('currentOnly requires an explicit asOf date.');
+    }
+    if (secondPassageMargin case final margin?
+        when !margin.isFinite || margin < 0) {
+      throw ArgumentError.value(
+        margin,
+        'secondPassageMargin',
+        'must be finite and nonnegative',
+      );
     }
     for (final start in governingSources.keys) {
       final visited = <String>{};
@@ -71,6 +87,11 @@ class KnowledgeSearchPolicy {
   /// Lower-authority concept path -> governing concept path. No inference from
   /// concept type, link label, verification tier, or similarity establishes it.
   final Map<String, String> governingSources;
+
+  /// Also returns a document's second-best passage, after its best one, when
+  /// it scores within this margin of it. The extra passage uses a context slot.
+  /// Null keeps one passage per document.
+  final double? secondPassageMargin;
 
   bool allows(KnowledgeSnapshot snapshot, String path) {
     final metadata = snapshot.metadataFor(path);
@@ -654,15 +675,23 @@ class KnowledgeIndex {
       budget: budget,
     );
     if (count == allowed.length) return response;
-    final matches = response.matches.map((hit) => hit.chunk.sourcePath).toSet();
-    final contextPaths =
-        response.context.map((hit) => hit.result.chunk.sourcePath).toSet()
-          ..removeAll(matches);
-    if (contextPaths.isEmpty) return response;
+    // Score every row of the documents in context, so each contributes its
+    // best passages as a complete ranking would. Extra passages only use
+    // budget, so assembling again cannot add a document or change a match.
+    final paths = response.context
+        .map((hit) => hit.result.chunk.sourcePath)
+        .toSet();
+    if (policy.secondPassageMargin == null) {
+      paths.removeAll(response.matches.map((hit) => hit.chunk.sourcePath));
+    }
+    final scored = {for (final hit in ranked) hit.chunk.id};
     final ordinals = [
       for (final ordinal in allowed)
-        if (contextPaths.contains(chunks[ordinal].sourcePath)) ordinal,
+        if (paths.contains(chunks[ordinal].sourcePath) &&
+            !scored.contains(chunks[ordinal].id))
+          ordinal,
     ];
+    if (ordinals.isEmpty) return response;
     final rows = await reader.rows(ordinals);
     throwIfCancelled(cancel);
     if (rows.length != ordinals.length) {
@@ -671,27 +700,17 @@ class KnowledgeIndex {
         'The generation reader did not return every requested context row.',
       );
     }
-    final best = <String, SearchResult>{};
-    for (final (index, ordinal) in ordinals.indexed) {
-      final hit = score(ordinal, rows[index]);
-      final path = hit.chunk.sourcePath;
-      final previous = best[path];
-      if (previous == null || _compareHits(hit, previous) < 0) best[path] = hit;
-    }
-    return KnowledgeSearchResponse(
-      matches: response.matches,
-      context: [
-        for (final hit in response.context)
-          KnowledgeContextHit(
-            best[hit.result.chunk.sourcePath] ?? hit.result,
-            hit.reason,
-            viaPath: hit.viaPath,
-            edge: hit.edge,
-            fieldEdge: hit.fieldEdge,
-          ),
-      ],
-      notices: response.notices,
-      sourcePaths: response.sourcePaths,
+    return _contextForEligible(
+      snapshot,
+      eligible,
+      [
+        ...ranked,
+        for (final (index, ordinal) in ordinals.indexed)
+          score(ordinal, rows[index]),
+      ]..sort(_compareHits),
+      policy: policy,
+      limit: limit,
+      budget: budget,
     );
   }
 
@@ -793,6 +812,19 @@ class KnowledgeIndex {
       }
     }
     final matches = best.values.take(limit).toList();
+    final second = <String, SearchResult>{};
+    if (policy.secondPassageMargin case final margin?) {
+      for (final hit in ranked) {
+        final top = best[hit.chunk.sourcePath];
+        if (top == null ||
+            top.chunk.id == hit.chunk.id ||
+            !eligible.containsKey(hit.chunk.id) ||
+            hit.similarity < top.similarity - margin) {
+          continue;
+        }
+        second.putIfAbsent(hit.chunk.sourcePath, () => hit);
+      }
+    }
     final byPath = <String, Chunk>{};
     for (final chunk in eligible.values) {
       byPath.putIfAbsent(chunk.sourcePath, () => chunk);
@@ -837,16 +869,22 @@ class KnowledgeIndex {
       if (context.length >= budget || !seen.add(path)) return;
       final chunk = byPath[path];
       if (chunk == null) return;
-      context.add(
-        KnowledgeContextHit(
-          best[path] ??
-              SearchResult(chunk: chunk, embedding: null, similarity: 0),
-          reason,
-          viaPath: via,
-          edge: edge,
-          fieldEdge: fieldEdge,
-        ),
-      );
+      for (final hit in [
+        best[path] ??
+            SearchResult(chunk: chunk, embedding: null, similarity: 0),
+        ?second[path],
+      ]) {
+        if (context.length >= budget) return;
+        context.add(
+          KnowledgeContextHit(
+            hit,
+            reason,
+            viaPath: via,
+            edge: edge,
+            fieldEdge: fieldEdge,
+          ),
+        );
+      }
     }
 
     void follow(
