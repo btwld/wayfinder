@@ -17,13 +17,13 @@ import 'float32_vector.dart';
 /// Writes throw [ArgumentError] if an embedding's chunk is missing from both
 /// the database and the batch.
 class DriftStore extends BaseStore {
-  DriftStore._(this._database, this.directory);
-
-  final StorageDatabase _database;
-
   /// The directory containing the mutable database.
   final String directory;
-  bool _closed = false;
+
+  final StorageDatabase _database;
+  Future<void>? _closing;
+
+  DriftStore._(this._database, this.directory);
 
   /// Opens or creates the mutable store in [directory].
   static Future<DriftStore> open(String directory) async {
@@ -38,10 +38,6 @@ class DriftStore extends BaseStore {
       await database.close();
       rethrow;
     }
-  }
-
-  void _ensureOpen() {
-    if (_closed) throw StateError('DriftStore has been closed.');
   }
 
   @override
@@ -321,12 +317,11 @@ class DriftStore extends BaseStore {
     };
   }
 
-  Future<void>? _closing;
   @override
-  Future<void> close() => _closing ??= _close();
-  Future<void> _close() async {
-    _closed = true;
-    await _database.close();
+  Future<void> close() => _closing ??= _database.close();
+
+  void _ensureOpen() {
+    if (_closing != null) throw StateError('DriftStore has been closed.');
   }
 }
 
