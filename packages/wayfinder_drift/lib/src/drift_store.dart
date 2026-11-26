@@ -85,19 +85,18 @@ class DriftStore extends BaseStore {
       var next = 0;
       if (chunks.isNotEmpty) {
         final table = _database.storedChunks;
-        final ids = chunks.map((chunk) => chunk.id).toSet().toList();
-        // Read only incoming identities, with a bounded parameter count even
-        // when callers submit more than the ingestion pipeline's usual batch.
-        for (var offset = 0; offset < ids.length; offset += 500) {
-          final end = offset + 500 < ids.length ? offset + 500 : ids.length;
-          final rows =
-              await (_database.selectOnly(table)
-                    ..addColumns([table.id, table.ordinal])
-                    ..where(table.id.isIn(ids.getRange(offset, end))))
-                  .get();
-          for (final row in rows) {
-            ordinals[row.read(table.id)!] = row.read(table.ordinal)!;
-          }
+        final ids = chunks.map((chunk) => chunk.id).toSet();
+        // One JSON array parameter stays below SQLite's variable limit.
+        final rows = await _database
+            .customSelect(
+              'SELECT id, ordinal FROM stored_chunks '
+              'WHERE id IN (SELECT value FROM json_each(?))',
+              variables: [Variable(jsonEncode(ids.toList()))],
+              readsFrom: {table},
+            )
+            .get();
+        for (final row in rows) {
+          ordinals[row.read<String>('id')] = row.read<int>('ordinal');
         }
         if (ordinals.length < ids.length) {
           final maximum = table.ordinal.max();
@@ -222,13 +221,22 @@ class DriftStore extends BaseStore {
     validateEmbeddingIdentityFilter(source, 'source');
     validateEmbeddingIdentityFilter(modelName, 'modelName');
     if (chunkIds.isEmpty) return const [];
-    // Filter the model identity in SQLite and the eligible set in Dart to avoid
-    // SQLite's variable limit for large bundles.
-    final rows = await (_database.select(
-      _database.storedEmbeddings,
-    )..where((t) => t.source.equals(source) & t.model.equals(modelName))).get();
+    final table = _database.storedEmbeddings;
+    final rows = await _database
+        .customSelect(
+          'SELECT * FROM stored_embeddings '
+          'WHERE source = ? AND model = ? '
+          'AND chunk_id IN (SELECT value FROM json_each(?))',
+          variables: [
+            Variable(source),
+            Variable(modelName),
+            Variable(jsonEncode(chunkIds.toList())),
+          ],
+          readsFrom: {table},
+        )
+        .get();
     return List.unmodifiable(
-      rows.where((r) => chunkIds.contains(r.chunkId)).map(_embeddingFromRow),
+      rows.map((row) => _embeddingFromRow(table.map(row.data))),
     );
   }
 
