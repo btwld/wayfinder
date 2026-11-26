@@ -67,10 +67,12 @@ judgments. The [fixture notes](embedding_comparison/README.md) state the known
 annotation limits. Current benchmark runners use dense retrieval only.
 
 `tool/benchmark_retrieval.dart` reports raw matches and assembled context at
-ten slots, with recall@3, recall@10, MRR and first-result correctness for the
-60 answerable questions of a split. For the 20 unanswerable questions it
-counts those that still returned candidates and records each query's top
-similarity. With `--iterations=0` it skips the latency loops.
+ten slots. Context comes from `KnowledgeIndex.search` with the full policy, as
+the CLI assembles it; raw matches rank the same query without links or
+governing sources. It reports recall@3, recall@10, MRR and first-result
+correctness for the 60 answerable questions of a split. For the 20
+unanswerable questions it counts those that still returned candidates and
+records each query's top similarity. With `--iterations=0` it skips the latency loops.
 
 The [protocol at `4ebf6a6^`](https://github.com/btwld/wayfinder/blob/4ebf6a6%5E/docs/wayfinder_embeddings_comparison.md)
 recorded held-out dense context results of 50/60 first passages, 88.3%
@@ -79,6 +81,12 @@ unanswerable question. On the current `okf-context-v2` passages they are 52/60,
 90.0%, 93.3% and 0.887. Development moved from 52/60, 91.7%, 96.7% and 0.902
 to 50/60, 88.3%, 90.0% and 0.863. Unanswerable questions still all return
 candidates; retrieval does not abstain.
+
+Those figures assembled context from the ten raw matches, as the September
+protocol did. A governing document without a raw match then contributed its
+first passage rather than its best-scoring one, which matched one held-out
+judgment by position. Assembled through `search`, held-out context recall@10
+is 91.7% and MRR 0.885; the baseline records these values.
 
 ## samples/
 

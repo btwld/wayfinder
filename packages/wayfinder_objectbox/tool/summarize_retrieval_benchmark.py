@@ -77,7 +77,7 @@ for split in ['development', 'test']:
                                  ['timeToFirstResultMs','modelOpenMs','parseMs','syncMs','peakRssBytes','databaseBytes']},
                        'reopen': {key: distribution([r[key] for r in selected if r['scenario']=='reopen']) for key in
                                   ['timeToFirstResultMs','syncMs']} if store=='objectbox' else None,
-                       **{key: measured[key] for key in ['uncached','cached','queryEncoding','rankingAndRawContext','policyAssembly','updates','initialEmbedded','initialDocumentEncodingMs','initialWriteMs','uncachedQueryEncodings','cachedQueryEncodings','modelOpened','totalDocumentEncodings','totalQueryEncodings','passageManifestSha256']},
+                       **{key: measured[key] for key in ['uncached','cached','queryEncoding','rankingAndContext','updates','initialEmbedded','initialDocumentEncodingMs','initialWriteMs','uncachedQueryEncodings','cachedQueryEncodings','modelOpened','totalDocumentEncodings','totalQueryEncodings','passageManifestSha256']},
                        'queries': [{key: q[key] for key in ['id','topic','group','raw','context']} for q in rows]}
             report['splits'][split][arm][store] = summary
         assert report['splits'][split][arm]['memory']['queries']==report['splits'][split][arm]['objectbox']['queries']
