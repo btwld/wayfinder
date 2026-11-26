@@ -10,8 +10,8 @@ packages/wayfinder_embeddings/fixtures/benchmarks/*.jsonl.gz binary
 
 # The 0.2.0 ObjectBox database is binary, and the store compares its schema
 # markers byte for byte.
-packages/wayfinder_embeddings/test/fixtures/objectbox-0.2.0/*.mdb binary
-packages/wayfinder_embeddings/test/fixtures/objectbox-0.2.0/*.schema text eol=lf
+packages/wayfinder_objectbox/test/fixtures/objectbox-0.2.0/*.mdb binary
+packages/wayfinder_objectbox/test/fixtures/objectbox-0.2.0/*.schema text eol=lf
 
 # The golden test compares bytes; a CRLF checkout would fail every golden.
 packages/wayfinder/test/goldens/** text eol=lf

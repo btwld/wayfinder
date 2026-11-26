@@ -4,21 +4,15 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:meta/meta.dart';
-import 'package:wayfinder_embeddings/objectbox.g.dart';
+import 'package:wayfinder_embeddings/storage_driver.dart';
+import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
+import 'package:wayfinder_objectbox/objectbox.g.dart';
 
-import '../models/chunk.dart';
-import '../models/embedding.dart';
-import '../models/search_result.dart';
-import '../util/checks.dart';
-import '../util/similarity.dart';
-import 'base_store.dart';
 import 'embedding_entities.dart';
-import 'embedding_key.dart';
 import 'objectbox_entities.dart';
-import 'vector_validation.dart';
 
 /// ObjectBox-backed [BaseStore] implementation with persistent chunk and
-/// embedding storage using HNSW vector search indices.
+/// embedding storage. [findSimilar] uses approximate HNSW vector search.
 ///
 /// Uses a 384-dimensional HNSW index. Existing databases from the previous
 /// schema must be reindexed into a new directory; opening them never silently
@@ -167,6 +161,8 @@ class ObjectBoxStore extends BaseStore {
     required String modelName,
   }) async {
     _ensureOpen();
+    validateEmbeddingIdentityFilter(source, 'source');
+    validateEmbeddingIdentityFilter(modelName, 'modelName');
     if (chunkIds.isEmpty) return const [];
     final query = _embeddingBox
         .query(
@@ -182,6 +178,10 @@ class ObjectBoxStore extends BaseStore {
     }
   }
 
+  /// Searches for embeddings with the given [source] and [modelName].
+  ///
+  /// If fewer than [limit] hits survive the identity filter and chunk lookup,
+  /// scores all embeddings for that identity exactly.
   @override
   Future<List<SearchResult>> findSimilar(
     List<double> queryVector,

@@ -46,9 +46,8 @@ historical status instead. Draft and unverified concepts remain eligible.
 The adapter requires `embedder:` and applies no implicit knowledge policy.
 Enable `includeContext` for title/heading inputs and supply
 `countTokens`/`maxTokens` from the encoder.
-Dense retrieval scores the entire eligible vector set exactly; a persistent
-store such as ObjectBox adds persistence, not a relevance advantage. Search fails if an eligible passage
-lacks a compatible vector. The caller owns the store and encoder.
+Dense retrieval scores the entire eligible vector set exactly. Search fails
+if an eligible passage lacks a compatible vector. The caller owns the store and encoder.
 Coordinate writes when multiple index instances share a bundle. Search responses
 separate query-ranked `matches` from bounded policy-selected `context`, including
 inclusion reasons and typed `KnowledgeNotice`s about unresolved links and
@@ -342,7 +341,6 @@ dart run example/knowledge_example.dart
 dart run tool/evaluate_okf_retrieval.dart --stores=memory --split=development --output=comparison_results/okf-development.json
 
 # Build the generic corpus evaluation CLI with its native assets.
-# ObjectBox must already be installed: run melos run objectbox:install at root.
 dart run tool/build_wayfinder_embeddings.dart --offline
 ```
 
@@ -467,30 +465,9 @@ It collapses repeated contexts to the first child hit.
   single-repository search.
 - `DriftStore` persists chunks and embeddings in SQLite and ranks them with
   sqlite-vec. See [wayfinder_drift](../wayfinder_drift/README.md).
-- `ObjectBoxStore` persists chunks and embeddings and searches with an HNSW
-  index. Its generated entity is fixed at 384 dimensions. It needs a platform
-  library that is not committed; install it with `melos run objectbox:install`.
-  The installer pins native 6.0.0-beta2, verifies the release archive's
-  SHA-256 before extracting it, and writes only to this package's `lib/`
-  directory. It covers every platform upstream publishes for
-  6.0.0-beta2 - macOS universal, linux x64/aarch64/armv7hf/armv6hf and windows
-  x64/x86/arm64 - and refuses anything without a pinned hash rather than
-  installing another architecture.
-  The package accepts any Dart `objectbox` 6.x from 6.0.0-preview.6. The
-  repository's workspace overrides it to 6.0.0-preview.6, the Dart release
-  ObjectBox pairs with native 6.0.0-beta2, so its tests and native bundles
-  always pair the two; `tool/objectbox_assets/manifest.json` records both
-  (`dartVersion` and `version`), and `test/objectbox_assets_test.dart` fails
-  when the override and the manifest differ.
-  Tests that need the library, such as `test/objectbox_store_test.dart`, are
-  tagged `native` and enabled only with `WAYFINDER_REQUIRE_NATIVE=1`, regardless
-  of installed assets. Native CI installs it and selects `--tags native`;
-  missing prerequisites fail. The knowledge store does not use it.
-  `minimumSearchCandidates` defaults to 50 independently of the result limit,
-  trading extra work for the recall measured on the fixture corpus.
+- The optional [wayfinder_objectbox](../wayfinder_objectbox/README.md) package
+  provides a persistent `BaseStore` for callers that need one.
 
-Both implement `BaseStore`. `storeBatch` writes chunks and embeddings together;
-`ObjectBoxStore` overrides it with one transaction.
 Memory search uses cosine similarity, returns zero for zero vectors, and scales
 finite vectors before scoring to avoid numeric overflow or underflow.
 
@@ -544,7 +521,6 @@ From the repository root:
 
 ```bash
 melos run wayfinder_embeddings:prepare
-melos run objectbox:install
 melos run wayfinder_embeddings:build
 ```
 
@@ -555,9 +531,8 @@ directory, and verifies its size and SHA-256. It then stages a verified copy as
 `models/embedding.gguf` with a manifest, the spec's `toMap()`: its `id`,
 `displayName`, source, size, SHA-256, preprocessing and license. Weights stay
 out of Git. A model that an earlier release downloaded into llamadart's shared
-cache is copied from there instead, and stays where it is. `objectbox:install` verifies its pinned
-release archive the same way, so every native asset a bundle ships is checked
-against a recorded hash. From this package, add `--offline` to
+cache is copied from there and remains in that cache. From this package, add
+`--offline` to
 `dart run tool/prepare_model.dart` or `dart run tool/build_wayfinder_embeddings.dart` to
 require an already staged or cached model. Native build hooks may still need
 their own runtime cache; `--offline` controls model acquisition only.
@@ -598,8 +573,7 @@ bundled. GGUF weights use the explicit preparation/packaging step because
 Dart's `data_assets` support is experimental.
 
 The build creates `build/wayfinder_embeddings/bundle/` with an executable under `bin/`,
-native libraries under `lib/` (ObjectBox's DLL is beside the executable on
-Windows), and weights, manifest, license, and attribution under `models/`.
+native libraries under `lib/`, and weights, manifest, license, and attribution under `models/`.
 Distribute the whole bundle. Its executable passes the model beside it in
 `models/`; the library's `defaultEmbeddingModelFile` never looks next to the
 running executable, and uses an `installation` its caller names, then the
@@ -715,15 +689,6 @@ rejects oversized inputs. Explicit `LongInputPolicy.truncate` (CLI
 chunk text and source ranges remain complete. Prefer splitting oversized source
 chunks when preserving full semantic coverage matters.
 
-Existing databases using the previous vector schema require reindexing into a
-**new directory**. The store refuses to open incompatible databases before
-ObjectBox modifies them. Regenerate committed entity bindings with `melos build`
-when changing the schema; preserve `lib/objectbox-model.json` UID history.
-The committed bindings come from `objectbox_generator` 6.0.0-preview.6 and
-keep every id and UID 0.2.0 used, so a store 0.2.0 wrote opens unchanged.
-`test/objectbox_store_test.dart` opens such a store from
-[`test/fixtures/objectbox-0.2.0/`](test/fixtures/objectbox-0.2.0/README.md).
-
 Run `dart run example/native_example.dart` after preparing the model.
 Generic Markdown chunking preserves caller-supplied metadata; an OKF adapter
 still needs to parse and supply the concept metadata.
@@ -737,16 +702,15 @@ Extend `BaseChunker` or `BaseEmbedder`. Register a chunker with
 ## Test lanes
 
 Run packages sequentially with concurrency 2. The model-free lane keeps
-CountingEmbedder/fake-engine behavior, MemoryStore and pure ObjectBox
-schema/scoring checks; it does not load a real model or open ObjectBox:
+CountingEmbedder, fake-engine behavior, and MemoryStore coverage without
+loading a model:
 
 ```sh
 dart test --concurrency=2 --exclude-tags native
 ```
 
-The real inference, ObjectBox contract/persistence/migration, duplicate-id
-persistence and installed-library checks are tagged `native`. After preparing
-the pinned assets with the existing commands above, explicitly request them:
+Real inference tests are tagged `native`. Prepare the pinned model before
+running them:
 
 ```sh
 WAYFINDER_REQUIRE_NATIVE=1 dart test --concurrency=2 --tags native
@@ -756,8 +720,7 @@ Both flag and selector make the intended run clear. The flag makes missing
 prerequisites fail rather than skip. Native tests never auto-enable because
 assets exist; plain `dart test` skips them unless the flag is set. CI keeps
 model-free coverage on minimum/stable and native coverage on stable, along
-with the existing real bundle and retrieval checks. No model identity or
-persistence schema changes with this test scheduling.
+with the native bundle and retrieval checks.
 
 ## Evaluation
 

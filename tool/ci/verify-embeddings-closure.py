@@ -1,12 +1,9 @@
 #!/usr/bin/env python3
-"""Keep analyzer and SQLite out of wayfinder_embeddings' runtime dependencies.
+"""Keep the analyzer, ObjectBox and SQLite out of wayfinder_embeddings' runtime dependencies.
 
 wayfinder_embeddings does not depend on `analyzer`, so an application can pick
 its own analyzer version. Nothing it depends on at runtime may reach `analyzer`
-or `_fe_analyzer_shared`. SQLite drivers live outside the core closure.
-
-Its dev dependencies still reach `analyzer` through build_runner and
-objectbox_generator; that is expected and allowed.
+or `_fe_analyzer_shared`. ObjectBox and SQLite live in separate driver packages.
 
 `dart pub deps` lists every workspace member and dev dependency. This walks the
 runtime dependency graph from wayfinder_embeddings instead. Run `dart pub get`
@@ -21,7 +18,16 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 PACKAGE = "wayfinder_embeddings"
-NO_RUNTIME = ("analyzer", "_fe_analyzer_shared", "drift", "sqlite3", "wayfinder_drift")
+NO_RUNTIME = (
+    "analyzer",
+    "_fe_analyzer_shared",
+    "objectbox",
+    "flat_buffers",
+    "wayfinder_objectbox",
+    "drift",
+    "sqlite3",
+    "wayfinder_drift",
+)
 
 
 def closure(graph: dict[str, dict], start: list[str]) -> set[str]:

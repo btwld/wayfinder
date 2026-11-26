@@ -13,6 +13,7 @@ workspace:
   - packages/wayfinder_drift
   - packages/wayfinder_cli
   - packages/wayfinder_storage_testing
+  - packages/wayfinder_objectbox
 
 dev_dependencies:
   melos: ^7.1.1
@@ -21,7 +22,7 @@ dev_dependencies:
   path: ^1.9.1
 
 # Workspace builds and tests use the Dart objectbox release that matches the
-# native library packages/wayfinder_embeddings/tool/install_objectbox.sh pins;
+# native library packages/wayfinder_objectbox/tool/install_objectbox.sh pins;
 # its objectbox_assets_test checks that the two agree. Published packages keep
 # their ranges, and overrides never reach their consumers. Move this, the
 # installer and its manifest together.
@@ -42,7 +43,7 @@ melos:
     get:
       run: dart pub get
     build:
-      run: dart run melos exec --scope=wayfinder_embeddings -- dart run build_runner build
+      run: dart run melos exec --scope=wayfinder_objectbox -- dart run build_runner build
     wayfinder_embeddings:prepare:
       description: Download and verify the pinned local embedding model
       run: dart run melos exec --scope=wayfinder_embeddings -- dart run tool/prepare_model.dart
@@ -60,7 +61,7 @@ melos:
       run: dart run melos exec --scope=wayfinder_embeddings -- dart run tool/build_wayfinder_embeddings.dart
     objectbox:install:
       description: Install the pinned ObjectBox native library locally
-      run: dart run melos exec --scope=wayfinder_embeddings -- bash tool/install_objectbox.sh
+      run: dart run melos exec --scope=wayfinder_objectbox -- bash tool/install_objectbox.sh
     analyze:
       run: dart run melos exec --fail-fast -- dart analyze --fatal-infos
     format:check:

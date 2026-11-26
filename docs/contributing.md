@@ -78,18 +78,16 @@ Embeddings has a separate explicit `native` lane. From
 
 ```sh
 dart test --concurrency=2 --exclude-tags native
-# After preparing the pinned model and installing ObjectBox:
+# After preparing the pinned model:
 WAYFINDER_REQUIRE_NATIVE=1 dart test --concurrency=2 --tags native
 ```
 
 Model/library presence never enables native tests by itself. The requirement
-flag enables native inference, real ObjectBox persistence/migration and
-installed-library verification; missing prerequisites then fail instead of
-skipping. Without the flag, plain `dart test` skips native-tagged cases even if
-assets remain installed. Fake-engine/CountingEmbedder tests and pure ObjectBox
-schema/scoring checks remain in the model-free lane. The stable native job
-selects tagged coverage and retains all bundle/integration/retrieval gates;
-minimum/stable keep the complete model-free suite.
+flag enables native inference and makes missing prerequisites fail. Without the
+flag, native-tagged cases skip even when assets are installed. The stable
+native retrieval job also runs the bundle, integration and judged retrieval
+gates. The separate stable ObjectBox job runs the
+[driver's tests](../packages/wayfinder_objectbox/README.md#development).
 
 The `wayfinder_drift` lane exercises the SQLite generation and mutable store
 contracts on minimum Dart and stable without an embedding model:
@@ -159,15 +157,9 @@ skill judgment separately. See [releasing](releasing.md) for publication/binarie
 
 `wayfinder_embeddings` keeps its tests, fixtures, and BSD license in the
 package directory. See its [README](../packages/wayfinder_embeddings/README.md)
-for the implementation and evaluation commands. Its optional native
-`ObjectBoxStore` backend, which the knowledge store and the `wayfinder` command
-do not use, needs `dart run melos run objectbox:install`; regenerate its committed ObjectBox
-files with `dart run melos run build` only when entity schemas change. The root
-`pubspec.yaml` overrides Dart `objectbox` to the version the installer pins
-natively; change the override, the installer and
-`tool/objectbox_assets/manifest.json` together.
-`wayfinder_embeddings` keeps `analyzer` out of its runtime dependencies;
-`python3 tool/ci/verify-embeddings-closure.py` checks that rule in CI.
+for the implementation and evaluation commands.
+`python3 tool/ci/verify-embeddings-closure.py` keeps analyzer and ObjectBox
+out of its runtime dependency graph.
 The committed baseline chunks are the source of truth for the judged retrieval
 corpus. Its tools and tests replay the Dart chunks and compare against that
 baseline without rewriting it; see its [fixtures README](../packages/wayfinder_embeddings/fixtures/README.md).
@@ -211,10 +203,9 @@ runner only for `workflow_dispatch`.
 
 The `test` matrix analyzes all packages and runs model-free tests plus the
 full core lock stress on Dart 3.11.0 and stable. The stable-only
-`native-retrieval` job selects native-tagged model/ObjectBox integration and
-keeps retrieval quality, relocated bundles and installer verification. This avoids
-running that complete native pipeline twice per commit; native execution on
-the minimum SDK is no longer a CI promise. Stable Linux artifacts still belong
+`native-retrieval` and `native-objectbox` jobs run model and store integration.
+The retrieval job keeps retrieval quality, relocated bundles and installer
+verification. Stable Linux artifacts still belong
 to the exact tested commit, and the three-platform distribution remains paused.
 
 Portable knowledge contracts and native loader regression tests now run in the

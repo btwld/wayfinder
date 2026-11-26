@@ -11,6 +11,7 @@ The public repository is `btwld/wayfinder`. All Dart packages use the
 | `wayfinder_cli` | `wayfinder` command and MCP server | `wayfinder-v<version>` | `publish-wayfinder-cli.yml` |
 | `wayfinder_embeddings` | Reusable retrieval library | `wayfinder_embeddings-v<version>` | `publish-wayfinder-embeddings.yml` |
 | `wayfinder_drift` | SQLite storage and sqlite-vec search | `wayfinder_drift-v<version>` | `publish-wayfinder-drift.yml` |
+| `wayfinder_objectbox` | Persistent ObjectBox embedding store | `wayfinder_objectbox-v<version>` | `publish-wayfinder-objectbox.yml` |
 
 The application retains `wayfinder-v` tags and native archive names for installer
 compatibility. The core uses a distinct tag namespace so independent library
@@ -81,9 +82,11 @@ resumes.
 1. Merge the preparation change and obtain successful source CI for that
    exact commit, including all three native platforms.
 2. Publish `wayfinder-core-v<version>`, then
-   `wayfinder_embeddings-v<version>`, then `wayfinder_drift-v<version>` at the
-   same checked commit. Wait for each package to become available on pub.dev
-   before publishing the next dependent. Skip any package that did not change.
+   `wayfinder_embeddings-v<version>` at the same checked commit and wait for
+   each package to become available on pub.dev. Then publish
+   `wayfinder_drift-v<version>` and `wayfinder_objectbox-v<version>` after
+   their embeddings sibling becomes available on pub.dev. Skip any package
+   that did not change.
 3. Outside the workspace, resolve the CLI with hosted dependencies (no path
    overrides), analyze it and run `dart pub publish --dry-run`.
 4. Publish `wayfinder-v<version>` at the same checked commit and wait for CLI
@@ -174,9 +177,13 @@ overwrite published archives.
 `wayfinder_cli` belongs to `concepta.dev` and its pub.dev GitHub publishing
 configuration accepts `btwld/wayfinder` tags matching
 `wayfinder-v{{version}}`. The core package accepts
-`wayfinder-core-v{{version}}` and `wayfinder_embeddings` accepts
-`wayfinder_embeddings-v{{version}}`. Configure the `wayfinder_drift` trusted
-publisher to accept `wayfinder_drift-v{{version}}`. GitHub tag creation using the built-in
+`wayfinder-core-v{{version}}`, and `wayfinder_embeddings` accepts
+`wayfinder_embeddings-v{{version}}`. For the first `wayfinder_drift` and
+`wayfinder_objectbox` releases, run the same source CI and hosted sibling gates
+before publishing with `dart pub publish` under the same publisher. Then enable
+GitHub publishing for `wayfinder_drift-v{{version}}` and
+`wayfinder_objectbox-v{{version}}` in each package's settings. GitHub tag
+creation using the built-in
 workflow token must not be relied on to trigger publication. Each publish
 workflow recognizes an already-published version and skips upload.
 
@@ -223,7 +230,7 @@ published release cannot be demoted — an immutable release accepts edits only 
 its title and notes. Deleting the release is the only way to withdraw it, and the tag name cannot be
 reused afterwards.
 
-Pub.dev publication uses OIDC for every package.
+Automated pub.dev publication uses OIDC for every package.
 
 Pass the real publish `dart pub publish --force` and nothing else. `--force`
 answers the confirmation a workflow cannot and uploads whenever there are no

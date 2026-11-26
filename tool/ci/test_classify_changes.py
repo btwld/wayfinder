@@ -66,6 +66,7 @@ class ClassificationTest(unittest.TestCase):
             'packages/wayfinder/test/a_test.dart',
             'packages/wayfinder/test/fixtures/note.md',
             'packages/wayfinder_embeddings/fixtures/corpus/page.md',
+            'packages/wayfinder_objectbox/tool/objectbox_assets/LICENSE',
             'examples/bitwild/knowledge/index.md',
             'examples/profiles/two-rule/wayfinder-profile.json',
             'profiles/bitwild/skill/references/types.md',
@@ -248,7 +249,7 @@ class WorkflowContractTest(unittest.TestCase):
 
     def test_heavy_jobs_skip_drafts_and_light_jobs_use_ubuntu_slim(self):
         expectations = {
-            'ci.yml': ('test:', 'native-retrieval:'),
+            'ci.yml': ('test:', 'native-retrieval:', 'native-objectbox:'),
             'installer-scripts.yml': ('posix:', 'windows:'),
             'verify-public-install.yml': ('install:',),
         }
@@ -283,6 +284,7 @@ class WorkflowContractTest(unittest.TestCase):
             'publish-wayfinder.yml',
             'publish-wayfinder-cli.yml',
             'publish-wayfinder-embeddings.yml',
+            'publish-wayfinder-objectbox.yml',
             'distribute-wayfinder.yml',
         ):
             text = (ROOT / '.github/workflows' / name).read_text(encoding='utf-8')
@@ -306,18 +308,26 @@ class WorkflowContractTest(unittest.TestCase):
         self.assertIn('WAYFINDER_REQUIRE_NATIVE: "1"', native)
         for command in (
             'dart run tool/prepare_model.dart',
-            'dart run melos run objectbox:install',
             'dart run tool/build_wayfinder.dart --offline',
             'python3 tool/verify_wayfinder.py',
             'python3 tool/verify_wayfinder_mcp.py',
             'dart run tool/evaluate_knowledge_cases.dart',
             '--split=development', '--split=held_out',
             'dart run tool/build_wayfinder_embeddings.dart --offline',
-            '--embedders=dense --store=objectbox',
+            '--embedders=dense --store=memory',
             'python3 tool/verify_installer.py',
         ):
             self.assertIn(command, native, command)
-        self.assertLess(native.index('objectbox:install'), native.index('--tags native'))
+        self.assertNotIn('objectbox:install', native)
+        objectbox = _job_section(ci, 'native-objectbox:')
+        self.assertIn('dart run melos run objectbox:install', objectbox)
+        self.assertLess(objectbox.index('objectbox:install'),
+                        objectbox.index('dart test --concurrency=2'))
+        self.assertIn('working-directory: packages/wayfinder_objectbox', objectbox)
+        self.assertIn('WAYFINDER_REQUIRE_NATIVE: "1"', objectbox)
+        required = _job_section(ci, 'required-checks:')
+        self.assertIn('needs: [changes, test, native-retrieval, native-objectbox]', required)
+        self.assertIn('native-objectbox=${{ needs.native-objectbox.result }}', required)
 
 
 def _job_names(text: str) -> list[str]:

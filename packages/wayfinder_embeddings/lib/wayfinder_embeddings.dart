@@ -34,6 +34,5 @@ export 'src/search/searcher.dart';
 // Storage
 export 'src/storage/base_store.dart';
 export 'src/storage/memory_store.dart';
-export 'src/storage/objectbox_store.dart';
 // Utilities
 export 'src/util/content_type.dart';

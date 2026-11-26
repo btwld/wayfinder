@@ -52,6 +52,7 @@ surfaces, supported verification targets, host ownership and migration boundarie
 | Dart authoring | Write a bundle a Profile governs: prepare one change, judge the candidate in memory, then commit it or report why not. | [`KnowledgeWriter`](../packages/wayfinder/README.md#authoring) from `package:wayfinder/authoring.dart` |
 | Dart retrieval | Build custom chunking and search workflows, including an OKF adapter. | [`wayfinder_embeddings`](../packages/wayfinder_embeddings/README.md), with `KnowledgeSnapshot` and `KnowledgeIndex` in `okf_knowledge.dart` and model provisioning with [`EmbeddingModelCache`](../packages/wayfinder_embeddings/README.md#provision-the-model-from-an-application) in `model_cache.dart` |
 | Dart SQLite storage | Write and search immutable SQLite generations with sqlite-vec, or persist mutable chunks and embeddings. | [`wayfinder_drift`](../packages/wayfinder_drift/README.md) from `package:wayfinder_drift/wayfinder_drift.dart` |
+| Dart persistent embeddings | Store chunks and embeddings in ObjectBox and search using its HNSW index. | [`wayfinder_objectbox`](../packages/wayfinder_objectbox/README.md) |
 | Flutter reader SDK | Use portable reader models, graph widgets and file-tree/link helpers; hosts supply backends and state. | [Package README](../packages/wayfinder_flutter/README.md) and [integration and graph guide](../packages/wayfinder_flutter/doc/integration.md) |
 
 CLI and MCP search can span configured bundles. CLI search also supports

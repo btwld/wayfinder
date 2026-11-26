@@ -23,8 +23,10 @@ repository root:
 
 ```sh
 git worktree add --detach ../wayfinder-0.2.0 wayfinder_embeddings-v0.2.0
-cp packages/wayfinder_embeddings/test/support/objectbox_0_2_0_fixture.dart \
-  ../wayfinder-0.2.0/packages/wayfinder_embeddings/test/support/
+mkdir -p ../wayfinder-0.2.0/packages/wayfinder_embeddings/test/support
+sed '/package:wayfinder_objectbox/d' \
+  packages/wayfinder_objectbox/test/support/objectbox_0_2_0_fixture.dart \
+  > ../wayfinder-0.2.0/packages/wayfinder_embeddings/test/support/objectbox_0_2_0_fixture.dart
 cd ../wayfinder-0.2.0
 dart pub get
 dart run melos run objectbox:install

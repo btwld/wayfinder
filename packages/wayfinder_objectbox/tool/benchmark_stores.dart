@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
+import 'package:wayfinder_objectbox/wayfinder_objectbox.dart';
 
 /// Compares storage with precomputed vectors from a dense comparison run.
 ///

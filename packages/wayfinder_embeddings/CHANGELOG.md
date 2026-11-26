@@ -1,5 +1,10 @@
 # 0.6.0-beta.1 (unreleased)
 
+- **BREAKING:** `ObjectBoxStore` moved to
+  [`wayfinder_objectbox`](../wayfinder_objectbox/README.md). Add that dependency
+  and import `package:wayfinder_objectbox/wayfinder_objectbox.dart` for the store.
+  Keep the embeddings import for chunking and search APIs. Existing databases
+  open from the same directory.
 - Add pluggable generation storage and filtered nearest-row search. Keep the
   existing plain-file layout and citation ranking, and republish into another
   registered format without embedding. `WayfinderKnowledgeStore.verify`

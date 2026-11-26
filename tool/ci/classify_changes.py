@@ -15,6 +15,7 @@ looks like documentation, because CI reads them:
 - ``docs/schemas/`` is the published contract ``--check`` compares
 - ``examples/`` bundles and profiles are validated, except a readme or license
 - Profile ``skill/`` text is compared to the package vocabulary
+- ObjectBox native provenance files are checked by the native job
 - ``test``, ``tests``, ``goldens``, ``fixtures``, and Profile ``versions/``
 - the vendored sqlite-vec libraries and license copied into native bundles
 """
@@ -83,7 +84,7 @@ def _template(path: str) -> bool:
 
 
 def _forced_code(path: str) -> bool:
-    if path.startswith('docs/schemas/'):
+    if path.startswith(('docs/schemas/', 'packages/wayfinder_objectbox/tool/objectbox_assets/')):
         return True
     if path.startswith('packages/wayfinder_drift/third_party/sqlite_vec/'):
         return _name(path) != 'readme.md'

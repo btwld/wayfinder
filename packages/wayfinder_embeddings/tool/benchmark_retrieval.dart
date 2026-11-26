@@ -11,17 +11,27 @@ import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
 import 'src/benchmark_models.dart';
 
 /// One isolated dense retrieval run. The orchestrator owns process/build timing.
-Future<void> main(List<String> args) async {
+Future<void> main(List<String> args) => runBenchmark(args);
+
+Future<void> runBenchmark(
+  List<String> args, {
+  Map<String, BaseStore Function(String)> additionalStores = const {},
+  String fixture = 'fixtures/embedding_comparison',
+}) async {
+  final stores = <String, BaseStore Function(String)>{
+    'memory': (_) => MemoryStore(),
+    ...additionalStores,
+  };
   final total = Stopwatch()..start();
   final parser = ArgParser()
     ..addOption('arm', defaultsTo: 'dense', help: 'Dense retrieval only.')
-    ..addOption('store', allowed: ['memory', 'objectbox'], defaultsTo: 'memory')
+    ..addOption('store', allowed: stores.keys, defaultsTo: 'memory')
     ..addOption(
       'split',
       allowed: ['development', 'test'],
       defaultsTo: 'development',
     )
-    ..addOption('fixture', defaultsTo: 'fixtures/embedding_comparison')
+    ..addOption('fixture', defaultsTo: fixture)
     ..addOption('database', mandatory: true)
     ..addOption('output', mandatory: true)
     ..addOption('iterations', defaultsTo: '1000')
@@ -50,12 +60,12 @@ Future<void> main(List<String> args) async {
       'Experimental models require an explicit --model-file.',
     );
   }
-  final fixture = options.option('fixture')!;
-  final sourceText = await File('$fixture/sources.json').readAsString();
+  final fixturePath = options.option('fixture')!;
+  final sourceText = await File('$fixturePath/sources.json').readAsString();
   final sources = (jsonDecode(sourceText) as Map<String, dynamic>)
       .cast<String, String>();
   final data =
-      jsonDecode(await File('$fixture/queries.json').readAsString())
+      jsonDecode(await File('$fixturePath/queries.json').readAsString())
           as Map<String, dynamic>;
   final rows = (data['queries'] as List<dynamic>)
       .cast<Map<String, dynamic>>()
@@ -71,9 +81,7 @@ Future<void> main(List<String> args) async {
   watch.reset();
   try {
     final store = MeasuredStore(
-      options.option('store') == 'memory'
-          ? MemoryStore()
-          : ObjectBoxStore.open(options.option('database')!),
+      stores[options.option('store')]!(options.option('database')!),
     );
     final storeOpenMs = elapsed(watch);
     try {
