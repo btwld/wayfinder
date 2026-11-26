@@ -129,19 +129,26 @@ Database _openWithVec(String path, OpenMode mode) {
   } catch (error) {
     throw GenerationOpenException(sqliteVecLoadError(error).message);
   }
+  final readOnly = mode == OpenMode.readOnly;
   final Database database;
   try {
-    database = sqlite3.open(path, mode: mode);
+    database = readOnly
+        // A published generation never changes, so readers skip locking.
+        ? sqlite3.open(
+            Uri.file(path).replace(query: 'immutable=1').toString(),
+            mode: mode,
+            uri: true,
+          )
+        : sqlite3.open(path, mode: mode);
   } on SqliteException catch (error) {
-    if (mode == OpenMode.readOnly &&
-        error.resultCode == SqlError.SQLITE_CANTOPEN) {
+    if (readOnly && error.resultCode == SqlError.SQLITE_CANTOPEN) {
       // SQLite's SQLITE_CANTOPEN includes the race with generation cleanup.
       throw const GenerationGone();
     }
-    if (error.message.contains('auto-extension')) {
-      throw GenerationOpenException(sqliteVecLoadError(error).message);
-    }
-    rethrow;
+    // Includes a failing sqlite-vec initializer, which SQLite runs on open.
+    throw GenerationOpenException(
+      'Could not open SQLite generation: ${error.message}',
+    );
   }
   try {
     verifySqliteVec(database);
@@ -157,7 +164,7 @@ Uint8List _bytes(Float32List row) =>
 
 Float32List _vector(Row row) {
   final bytes = row['embedding'] as Uint8List;
-  return Float32List.view(bytes.buffer, bytes.offsetInBytes, bytes.length ~/ 4);
+  return Float32List.sublistView(bytes);
 }
 
 final class _SqliteGenerationReader implements GenerationReader {
@@ -236,6 +243,7 @@ final class _SqliteGenerationReader implements GenerationReader {
         ? null
         : jsonEncode(allowed.toList());
     if (count <= _nativeLimit && _bounded && hasBoundedCosineScale(query)) {
+      // Extra candidates let the exact rerank settle native near-ties.
       final k = math.min(
         eligible,
         math.min(_nativeLimit, count + math.max(8, count ~/ 4)),
