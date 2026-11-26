@@ -301,17 +301,21 @@ application model remains Arctic XS Q8_0.
 
 A storage driver implements `GenerationFormat` and `GenerationReader` from
 `package:wayfinder_embeddings/knowledge_store.dart`. Their doc comments state
-the contract. Register a driver with the `formats` argument of
+the contract, including how to report a format-specific diagnostic with
+`GenerationOpenException`. Register a driver with the `formats` argument of
 `WayfinderKnowledgeStore`, whose doc comment says which format writes and
 which formats read. Wayfinder computes the final score of every row a reader
 returns, so search results are the same in every format.
 
-Drivers that also back `BaseStore` implement `BaseStore.findSimilar` for its
-search.
+Drivers can import shared scoring and validation from
+`package:wayfinder_embeddings/storage_driver.dart`. Drivers that also back
+`BaseStore` implement `BaseStore.findSimilar` for its search.
 
 The workspace-only `wayfinder_storage_testing` package tests a driver.
 `runGenerationFormatContract` and `runKnowledgeStoreSuites` take a
-`GenerationFormatHarness`, and `runStoreContract` takes a `BaseStore`.
+`GenerationFormatHarness`. `runGenerationRankingParity` and
+`runGenerationRandomParity` exercise ranking against exact search, including
+near ties. `runStoreContract` takes a factory that creates a fresh `BaseStore`.
 
 ## Command-line entry points
 
@@ -461,6 +465,8 @@ It collapses repeated contexts to the first child hit.
 - `MemoryStore` is the default. It performs exact brute-force vector search and
   accepts any embedding dimension. Use it for tests, evaluation, and
   single-repository search.
+- `DriftStore` persists chunks and embeddings in SQLite and ranks them with
+  sqlite-vec. See [wayfinder_drift](../wayfinder_drift/README.md).
 - `ObjectBoxStore` persists chunks and embeddings and searches with an HNSW
   index. Its generated entity is fixed at 384 dimensions. It needs a platform
   library that is not committed; install it with `melos run objectbox:install`.

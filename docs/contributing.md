@@ -91,6 +91,13 @@ schema/scoring checks remain in the model-free lane. The stable native job
 selects tagged coverage and retains all bundle/integration/retrieval gates;
 minimum/stable keep the complete model-free suite.
 
+The `wayfinder_drift` lane exercises the SQLite generation and mutable store
+contracts on minimum Dart and stable without an embedding model:
+
+```sh
+(cd packages/wayfinder_drift && dart test --concurrency=2)
+```
+
 `dart run melos run lint` checks all workspace packages. Package test runs are
 serialized because workspace members share native build-hook output; concurrent
 runs can race during library copying or macOS codesigning. Use concurrency 2 for
