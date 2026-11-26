@@ -1,14 +1,14 @@
 import 'dart:convert';
 import 'dart:io';
 
-/// Largest allowed drop below a baseline value.
-const baselineTolerance = 0.01;
-
-/// Describes each value that fell more than [baselineTolerance] below
-/// [baseline], in the splits that [current] measured.
+/// Describes each difference between [current] and [baseline] that fails the
+/// gate, in the splits that [current] measured.
 ///
 /// Both maps hold the [identity] keys and `split -> run -> metric -> value`.
-/// A baseline recorded for a different identity fails as a whole.
+/// Any value below its baseline fails, so losing a single query fails. A
+/// measured run or metric without a baseline value, and a baseline run or
+/// metric that was not measured, fail too. A baseline recorded for a
+/// different identity fails as a whole.
 List<String> compareWithBaseline(
   Map<String, Object?> baseline,
   Map<String, Object?> current, {
@@ -23,14 +23,25 @@ List<String> compareWithBaseline(
   for (final split in current.keys.where((key) => !identity.contains(key))) {
     final measured = current[split]! as Map<String, Object?>;
     final expected = (baseline[split] as Map<String, Object?>?) ?? const {};
-    for (final MapEntry(key: run, value: metrics) in expected.entries) {
+    for (final run in {...measured.keys, ...expected.keys}) {
       final values = measured[run] as Map<String, Object?>?;
-      for (final MapEntry(key: metric, value: floor)
-          in (metrics! as Map<String, Object?>).entries) {
-        final value = values?[metric] as num?;
-        if (value == null) {
-          failures.add('$split $run $metric: missing');
-        } else if (value < (floor! as num) - baselineTolerance) {
+      final floors = expected[run] as Map<String, Object?>?;
+      if (floors == null) {
+        failures.add('$split $run: no baseline');
+        continue;
+      }
+      if (values == null) {
+        failures.add('$split $run: not measured');
+        continue;
+      }
+      for (final metric in {...values.keys, ...floors.keys}) {
+        final value = values[metric] as num?;
+        final floor = floors[metric] as num?;
+        if (floor == null) {
+          failures.add('$split $run $metric: no baseline');
+        } else if (value == null) {
+          failures.add('$split $run $metric: not measured');
+        } else if (value < floor) {
           failures.add('$split $run $metric: $value < baseline $floor');
         }
       }
