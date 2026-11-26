@@ -1,5 +1,11 @@
 # 0.6.0-beta.1
 
+- **BREAKING:** `KnowledgeIndex` and `KnowledgeIndex.fromSnapshot` now default
+  `includeContext` to true, so library indexes embed title, description and
+  section context like the CLI. This raised recall and MRR on the OKF
+  retrieval fixture. An index built with the old default must be synchronized
+  again, or opened with `includeContext: false`. The error for missing vectors
+  now names the embedding space it searched.
 - **BREAKING:** `ObjectBoxStore` moved to
   [`wayfinder_objectbox`](../wayfinder_objectbox/README.md). Add that dependency
   and import `package:wayfinder_objectbox/wayfinder_objectbox.dart` for the store.

@@ -288,7 +288,7 @@ class KnowledgeIndex {
     required KnowledgeSnapshot snapshot,
     required BaseStore store,
     required this.embedder,
-    this.includeContext = false,
+    this.includeContext = true,
     this.bundleRoot,
   }) : _store = store,
        _reader = null,
@@ -311,7 +311,7 @@ class KnowledgeIndex {
   KnowledgeIndex({
     required BaseStore store,
     required this.embedder,
-    this.includeContext = false,
+    this.includeContext = true,
     this.countTokens,
     this.maxTokens,
     this.bundleRoot,
@@ -328,6 +328,12 @@ class KnowledgeIndex {
   final GenerationReader? _reader;
   BaseStore get store => _store!;
   final BaseEmbedder embedder;
+
+  /// Whether each passage is embedded with its title, description and section
+  /// context (`okf-context-v2`) instead of its body alone (`okf-body-v1`).
+  ///
+  /// Defaults to true, the input the CLI and the knowledge store use. An index
+  /// built with one setting cannot search vectors written with the other.
   final bool includeContext;
   final Future<int> Function(String)? countTokens;
   final int? maxTokens;
@@ -506,7 +512,9 @@ class KnowledgeIndex {
         if (stored.length != eligible.length) {
           throw StateError(
             'Dense search requires compatible embeddings for every eligible '
-            'passage. Synchronize the index again.',
+            'passage in the $embeddingModelName space. Synchronize the index '
+            'again, or open it with the includeContext setting and model that '
+            'built it.',
           );
         }
         final vector = await _queryVector(query);
