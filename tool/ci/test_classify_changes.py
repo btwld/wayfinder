@@ -312,7 +312,9 @@ class WorkflowContractTest(unittest.TestCase):
             'python3 tool/verify_wayfinder.py',
             'python3 tool/verify_wayfinder_mcp.py',
             'dart run tool/evaluate_knowledge_cases.dart',
-            '--split=development', '--split=held_out',
+            '--split=development,held_out',
+            '--baselines=fixtures/benchmarks/okf_retrieval',
+            '--stores=drift',
             'dart run tool/build_wayfinder_embeddings.dart --offline',
             '--embedders=dense --store=memory',
             'python3 tool/verify_installer.py',
@@ -325,6 +327,11 @@ class WorkflowContractTest(unittest.TestCase):
                         objectbox.index('dart test --concurrency=2'))
         self.assertIn('working-directory: packages/wayfinder_objectbox', objectbox)
         self.assertIn('WAYFINDER_REQUIRE_NATIVE: "1"', objectbox)
+        self.assertIn('--stores=objectbox', objectbox)
+        self.assertIn('--split=development,held_out', objectbox)
+        self.assertIn(
+            '--baselines=../wayfinder_embeddings/fixtures/benchmarks/okf_retrieval',
+            objectbox)
         required = _job_section(ci, 'required-checks:')
         self.assertIn('needs: [changes, test, native-retrieval, native-objectbox]', required)
         self.assertIn('native-objectbox=${{ needs.native-objectbox.result }}', required)
