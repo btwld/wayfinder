@@ -758,6 +758,20 @@ Run the same command from `packages/wayfinder_drift` or
 `--baselines=../wayfinder_embeddings/fixtures/benchmarks/okf_retrieval` and
 `WAYFINDER_EMBEDDING_MODEL=../wayfinder_embeddings/models/embedding.gguf`.
 
+The 160-query comparison fixture gate runs one split per process:
+
+```bash
+for split in development test; do
+  dart run tool/benchmark_retrieval.dart --split=$split --iterations=0 \
+    --verify-token-budget --database=comparison_results/db-$split \
+    --baseline=fixtures/benchmarks/embedding_comparison_baseline.json \
+    --output=comparison_results/comparison-$split.json
+done
+```
+
+Add `--update-baseline` to rewrite a split's baseline after reviewing its
+per-query changes.
+
 The judged corpus is mostly Dart, and this package has no Dart chunker.
 `--reference-chunks` replays the corpus golden's chunks for every file no
 built-in chunker handles, so the gate keeps the chunk ids the qrels name;

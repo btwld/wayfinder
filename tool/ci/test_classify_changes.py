@@ -315,6 +315,8 @@ class WorkflowContractTest(unittest.TestCase):
             '--split=development,held_out',
             '--baselines=fixtures/benchmarks/okf_retrieval',
             '--stores=drift',
+            'dart run tool/benchmark_retrieval.dart',
+            '--baseline=fixtures/benchmarks/embedding_comparison_baseline.json',
             'dart run tool/build_wayfinder_embeddings.dart --offline',
             '--embedders=dense --store=memory',
             'python3 tool/verify_installer.py',

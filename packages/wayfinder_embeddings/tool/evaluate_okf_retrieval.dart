@@ -11,6 +11,8 @@ import 'package:wayfinder_embeddings/okf_knowledge.dart';
 import 'package:wayfinder_embeddings/storage_driver.dart' show cosineSimilarity;
 import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
 
+import 'src/metric_baseline.dart';
+
 /// Evaluates each component against fixed, passage-level judgments. Run the
 /// development split before selecting defaults; inspect held-out results later.
 ///
@@ -22,9 +24,6 @@ Future<void> main(List<String> args) => evaluate(args);
 
 /// Result-list cutoff of the `findSimilar/*` runs.
 const findSimilarLimit = 10;
-
-/// Largest allowed drop below a baseline value.
-const baselineTolerance = 0.01;
 
 const _gatedMetrics = ['recall', 'mrr', 'exactRecall'];
 
@@ -298,18 +297,15 @@ Future<void> evaluate(
     if (baselines != null) {
       for (final kind in selectedStores) {
         final file = File(p.join(baselines, '$kind.json'));
-        final measured = runs[kind]!;
+        final current = _gated(report, runs[kind]!);
         if (options.flag('update-baselines')) {
-          await file.parent.create(recursive: true);
-          await file.writeAsString(
-            '${const JsonEncoder.withIndent('  ').convert(_baseline(report, measured))}\n',
-          );
+          await writeBaseline(file, current, identity: _identity);
           stdout.writeln('Updated ${file.path}');
         } else {
-          final failures = _compare(
+          final failures = compareWithBaseline(
             jsonDecode(await file.readAsString()) as Map<String, Object?>,
-            report,
-            measured,
+            current,
+            identity: _identity,
           );
           for (final failure in failures) {
             stderr.writeln('$kind $failure');
@@ -467,55 +463,23 @@ Map<String, Object?> _metrics(List<Map<String, Object?>> rows) {
   };
 }
 
-Map<String, Object?> _aggregate(Map<String, Object?> run) =>
-    run['aggregate']! as Map<String, Object?>;
+const _identity = ['model', 'querySha256'];
 
 /// The gated metrics of [runs], keyed by split and run.
-Map<String, Object?> _baseline(
+Map<String, Object?> _gated(
   Map<String, Object?> report,
   Map<String, Map<String, Object?>> runs,
 ) => {
-  'model': report['model'],
-  'querySha256': report['querySha256'],
+  for (final key in _identity) key: report[key],
   for (final MapEntry(key: split, value: named) in runs.entries)
     split: {
       for (final MapEntry(key: name, value: run) in named.entries)
         name: {
           for (final metric in _gatedMetrics)
-            if (_aggregate(run! as Map<String, Object?>)[metric]
+            if (((run! as Map<String, Object?>)['aggregate']!
+                    as Map<String, Object?>)[metric]
                 case final num value)
               metric: value,
         },
     },
 };
-
-/// Describes each gated value that fell more than [baselineTolerance] below
-/// [baseline], in the measured splits.
-List<String> _compare(
-  Map<String, Object?> baseline,
-  Map<String, Object?> report,
-  Map<String, Map<String, Object?>> runs,
-) {
-  for (final key in ['model', 'querySha256']) {
-    if (baseline[key] != report[key]) {
-      return ['baseline $key ${baseline[key]} differs from ${report[key]}'];
-    }
-  }
-  final failures = <String>[];
-  for (final MapEntry(key: split, value: named) in runs.entries) {
-    final expected = (baseline[split] as Map<String, Object?>?) ?? const {};
-    for (final MapEntry(key: name, value: metrics) in expected.entries) {
-      final run = named[name] as Map<String, Object?>?;
-      for (final MapEntry(key: metric, value: floor)
-          in (metrics! as Map<String, Object?>).entries) {
-        final value = run == null ? null : _aggregate(run)[metric] as num?;
-        if (value == null) {
-          failures.add('$split $name $metric: missing');
-        } else if (value < (floor! as num) - baselineTolerance) {
-          failures.add('$split $name $metric: $value < baseline $floor');
-        }
-      }
-    }
-  }
-  return failures;
-}

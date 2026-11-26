@@ -66,6 +66,20 @@ from the 65-query corpus gate.
 judgments. The [fixture notes](embedding_comparison/README.md) state the known
 annotation limits. Current benchmark runners use dense retrieval only.
 
+`tool/benchmark_retrieval.dart` reports raw matches and assembled context at
+ten slots, with recall@3, recall@10, MRR and first-result correctness for the
+60 answerable questions of a split. For the 20 unanswerable questions it
+counts those that still returned candidates and records each query's top
+similarity. With `--iterations=0` it skips the latency loops.
+
+The [protocol at `4ebf6a6^`](https://github.com/btwld/wayfinder/blob/4ebf6a6%5E/docs/wayfinder_embeddings_comparison.md)
+recorded held-out dense context results of 50/60 first passages, 88.3%
+recall@3, 91.7% recall@10 and MRR 0.863, with candidates for every
+unanswerable question. On the current `okf-context-v2` passages they are 52/60,
+90.0%, 93.3% and 0.887. Development moved from 52/60, 91.7%, 96.7% and 0.902
+to 50/60, 88.3%, 90.0% and 0.863. Unanswerable questions still all return
+candidates; retrieval does not abstain.
+
 ## samples/
 
 Reusable example inputs exercise the three built-in chunkers, including code
@@ -92,6 +106,10 @@ judgment and is not a new evaluation. Its original model identity predates the
 current identity spelling; the gate compares metric drops, not that old string.
 The original run used the recorded truncation policy. Do not present its results
 as current accuracy on a different corpus, chunk policy, or model.
+
+`embedding_comparison_baseline.json` holds the 160-query fixture's raw and
+context recall@3, recall@10 and MRR per split for the memory store, checked
+the same way through `tool/benchmark_retrieval.dart --baseline`.
 
 `okf_retrieval/` holds one baseline per store for the OKF fixture's recall,
 MRR and, for `findSimilar/*` runs, `exactRecall` on both splits, recorded on

@@ -9,6 +9,7 @@ import 'package:wayfinder_embeddings/okf_knowledge.dart';
 import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
 
 import 'src/benchmark_models.dart';
+import 'src/metric_baseline.dart';
 
 /// One isolated dense retrieval run. The orchestrator owns process/build timing.
 Future<void> main(List<String> args) => runBenchmark(args);
@@ -41,6 +42,15 @@ Future<void> runBenchmark(
       defaultsTo: localEmbeddingModel.id,
     )
     ..addOption('model-file')
+    ..addOption(
+      'baseline',
+      help: 'Baseline file of judged metrics per split to check against.',
+    )
+    ..addFlag(
+      'update-baseline',
+      negatable: false,
+      help: 'Write the measured split to --baseline instead of checking.',
+    )
     ..addFlag('verify-token-budget', negatable: false);
   final options = parser.parse(args);
   final arm = options.option('arm')!;
@@ -60,13 +70,16 @@ Future<void> runBenchmark(
       'Experimental models require an explicit --model-file.',
     );
   }
+  final baseline = options.option('baseline');
+  if (options.flag('update-baseline') && baseline == null) {
+    throw ArgumentError('--update-baseline requires --baseline.');
+  }
   final fixturePath = options.option('fixture')!;
   final sourceText = await File('$fixturePath/sources.json').readAsString();
   final sources = (jsonDecode(sourceText) as Map<String, dynamic>)
       .cast<String, String>();
-  final data =
-      jsonDecode(await File('$fixturePath/queries.json').readAsString())
-          as Map<String, dynamic>;
+  final queryText = await File('$fixturePath/queries.json').readAsString();
+  final data = jsonDecode(queryText) as Map<String, dynamic>;
   final rows = (data['queries'] as List<dynamic>)
       .cast<Map<String, dynamic>>()
       .where((row) => row['split'] == options.option('split'))
@@ -178,6 +191,7 @@ Future<void> runBenchmark(
           'group': row['group'],
           'raw': judge(result.matches, supports),
           'context': judge(context, supports),
+          'topSimilarity': result.matches.firstOrNull?.similarity,
           'matches': result.matches.map((hit) => hit.chunk.sourcePath).toList(),
           'passages': [
             for (final hit in result.context.context)
@@ -278,6 +292,7 @@ Future<void> runBenchmark(
         'runtime': Platform.version,
         'modelOpened': true,
         'modelIdentity': model.modelName,
+        'querySha256': sha256.convert(utf8.encode(queryText)).toString(),
         'modelSpec': model.model.toMap(),
         'truncatedInputs': model.truncatedInputs,
         'passageManifestSha256': sha256
@@ -314,6 +329,12 @@ Future<void> runBenchmark(
         'updates': updateRows,
         'stats': stats,
         'peakRssBytes': ProcessInfo.maxRss,
+        'aggregate': {
+          for (final field in ['raw', 'context'])
+            field: aggregate([
+              for (final row in quality) row[field]! as Map<String, Object?>,
+            ]),
+        },
         'quality': quality,
       };
       final output = File(options.option('output')!);
@@ -321,6 +342,33 @@ Future<void> runBenchmark(
       await output.writeAsString(
         '${const JsonEncoder.withIndent('  ').convert(report)}\n',
       );
+      if (baseline != null) {
+        final aggregates = report['aggregate']! as Map<String, Object?>;
+        final current = {
+          for (final key in _identity) key: report[key],
+          options.option('split')!: {
+            for (final MapEntry(key: field, value: metrics)
+                in aggregates.entries)
+              field: {
+                for (final metric in _gatedMetrics)
+                  metric: (metrics! as Map<String, Object?>)[metric],
+              },
+          },
+        };
+        final file = File(baseline);
+        if (options.flag('update-baseline')) {
+          await writeBaseline(file, current, identity: _identity);
+          stdout.writeln('Updated ${file.path}');
+        } else {
+          final failures = compareWithBaseline(
+            jsonDecode(await file.readAsString()) as Map<String, Object?>,
+            current,
+            identity: _identity,
+          );
+          failures.forEach(stderr.writeln);
+          if (failures.isNotEmpty) exitCode = 1;
+        }
+      }
     } finally {
       await store.close();
     }
@@ -329,7 +377,33 @@ Future<void> runBenchmark(
   }
 }
 
+const _identity = ['modelIdentity', 'querySha256'];
+
+const _gatedMetrics = ['recall3', 'recall10', 'mrr'];
+
 double elapsed(Stopwatch watch) => watch.elapsedMicroseconds / 1000;
+
+/// Summarizes [judgments] from [judge] for one split.
+Map<String, Object?> aggregate(List<Map<String, Object?>> judgments) {
+  final answerable = [
+    for (final row in judgments)
+      if (row['answerable'] == true) row,
+  ];
+  double mean(String key) =>
+      answerable.fold<double>(0, (sum, row) => sum + (row[key]! as num)) /
+      answerable.length;
+  return {
+    'answerable': answerable.length,
+    'top1Correct': answerable.where((row) => row['top1'] == true).length,
+    'recall3': mean('recall3'),
+    'recall10': mean('recall10'),
+    'mrr': mean('rr'),
+    'unanswerable': judgments.length - answerable.length,
+    'unanswerableWithCandidates': judgments
+        .where((row) => row['answerable'] != true && row['candidates'] != 0)
+        .length,
+  };
+}
 
 Map<String, Object?> summarize(List<double> values) {
   if (values.isEmpty) return {'count': 0};

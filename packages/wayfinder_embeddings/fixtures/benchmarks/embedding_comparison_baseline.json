@@ -1,0 +1,28 @@
+{
+  "modelIdentity": "arctic-embed-xs-q8_0:637e90cf766042919dfdd9c70a74570bf02d6d092804dca0ab7cd938bafe43ec",
+  "querySha256": "e1924c545fc87ee7d7e709650f9775d0a58ef7524077c0ea7409a54395f5ec4d",
+  "development": {
+    "raw": {
+      "recall3": 0.8666666666666667,
+      "recall10": 0.9,
+      "mrr": 0.6857142857142857
+    },
+    "context": {
+      "recall3": 0.8833333333333333,
+      "recall10": 0.9,
+      "mrr": 0.8625
+    }
+  },
+  "test": {
+    "raw": {
+      "recall3": 0.8833333333333333,
+      "recall10": 0.9166666666666666,
+      "mrr": 0.7022222222222222
+    },
+    "context": {
+      "recall3": 0.9,
+      "recall10": 0.9333333333333333,
+      "mrr": 0.8873809523809525
+    }
+  }
+}

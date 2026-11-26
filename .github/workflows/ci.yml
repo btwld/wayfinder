@@ -250,6 +250,18 @@ jobs:
           --split=development,held_out
           --baselines=../wayfinder_embeddings/fixtures/benchmarks/okf_retrieval
           --output="$RUNNER_TEMP/okf-drift.json"
+      - name: Gate the 160-query comparison fixture on both splits
+        shell: bash
+        run: |
+          status=0
+          for split in development test; do
+            dart run tool/benchmark_retrieval.dart --split="$split" \
+              --iterations=0 --verify-token-budget \
+              --database="$RUNNER_TEMP/comparison-$split" \
+              --baseline=fixtures/benchmarks/embedding_comparison_baseline.json \
+              --output="$RUNNER_TEMP/comparison-$split.json" || status=1
+          done
+          exit "$status"
       - run: dart run tool/build_wayfinder_embeddings.dart --offline
       - name: Run relocated native bundle against the judged corpus
         shell: bash
@@ -308,6 +320,8 @@ jobs:
             ${{ runner.temp }}/knowledge-cases.json
             ${{ runner.temp }}/okf-memory.json
             ${{ runner.temp }}/okf-drift.json
+            ${{ runner.temp }}/comparison-development.json
+            ${{ runner.temp }}/comparison-test.json
 
   native-objectbox:
     needs: changes
