@@ -64,10 +64,11 @@ typedef _Pinned = ({
 typedef _Namespace = ({String root, Directory directory, File writer});
 
 final class _MissingFormatMarker extends WayfinderException {
-  _MissingFormatMarker(String markers)
+  _MissingFormatMarker(String markers, String files)
     : super(
         'index-incompatible',
-        'Saved index is incomplete or incompatible: missing a known format marker ($markers).',
+        'Saved index is incomplete or incompatible: missing a known format marker '
+            '($markers). Generation files: $files.',
       );
 }
 
@@ -629,6 +630,8 @@ class WayfinderKnowledgeStore {
         _remember(key, data.record, pinned.saved, vectors: pinned.verified);
       }
       await _collectGarbage(index, keep: generation);
+    } on GenerationOpenException catch (error) {
+      throw WayfinderException('index-incompatible', error.message);
     } finally {
       if (!published && await staged.exists()) {
         await staged.delete(recursive: true);
@@ -1855,7 +1858,21 @@ class WayfinderKnowledgeStore {
       final markers = _formats.map(
         (format) => '${format.name}: ${format.marker}',
       );
-      throw _MissingFormatMarker(markers.join(', '));
+      final List<String> files;
+      try {
+        files = await folder
+            .list()
+            .where((entry) => entry is File)
+            .map((entry) => p.basename(entry.path))
+            .toList();
+      } on PathNotFoundException {
+        throw const GenerationGone();
+      }
+      files.sort();
+      throw _MissingFormatMarker(
+        markers.join(', '),
+        files.isEmpty ? '(none)' : files.join(', '),
+      );
     }
     GenerationReader? reader;
     try {
@@ -1898,6 +1915,10 @@ class WayfinderKnowledgeStore {
         record: text,
         verified: vectors,
       );
+    } on GenerationOpenException catch (error) {
+      await reader?.close();
+      _cachedSavedIndexes.remove(cacheKey);
+      throw WayfinderException('index-incompatible', error.message);
     } on GenerationGone {
       await reader?.close();
       _cachedSavedIndexes.remove(cacheKey);

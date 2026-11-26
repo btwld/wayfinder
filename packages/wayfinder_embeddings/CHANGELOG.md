@@ -1,4 +1,4 @@
-# 0.6.0-beta.1
+# 0.6.0-beta.1 (unreleased)
 
 - **BREAKING:** `KnowledgeIndex` and `KnowledgeIndex.fromSnapshot` now default
   `includeContext` to true, so library indexes embed title, description and
@@ -18,6 +18,11 @@
   checks the complete vector checksum without opening an encoder.
 - `status` and search no longer hash every vector. They check the record, the
   row count and the row width. Call `verify` to check the vector checksum.
+- Preserve format diagnostics on an incompatible index.
+- `storage_driver.dart` exports `vectorScale` and `encodeFloat32` for float32
+  storage drivers.
+- Report format initialization failures during publication as
+  `index-incompatible`.
 
 # 0.5.0-beta.1
 

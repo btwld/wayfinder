@@ -2,8 +2,8 @@
 
 Wayfinder finds and validates knowledge in an existing OKF bundle. Its complete
 native installation includes `wayfinder` with OKF and Profile validation, the
-embedding runtime, a verified embedding model and license notices. Indexes are
-plain files in per-user application data, so no database library is installed.
+embedding runtime, a verified embedding model, SQLite with sqlite-vec and
+license notices. Indexes live in per-user application data.
 It does not require Dart, GitHub credentials or administrator access.
 
 The install scripts are the installation path. They install the current native

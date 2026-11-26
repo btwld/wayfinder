@@ -3,14 +3,13 @@ import 'dart:io';
 import 'package:args/args.dart';
 import 'package:path/path.dart' as p;
 
-import '../packages/wayfinder_embeddings/tool/src/model_preparation.dart';
 import '../packages/wayfinder_embeddings/tool/src/dependency_licenses.dart';
+import '../packages/wayfinder_embeddings/tool/src/model_preparation.dart';
 import '../packages/wayfinder_embeddings/tool/src/native_cli_assets.dart';
 
 /// Builds Wayfinder from the workspace root with verified model/native assets.
 ///
-/// The command needs no ObjectBox library: its knowledge store keeps indexes
-/// as plain generation files.
+/// SQLite and embedding libraries are staged through native assets.
 Future<void> main(List<String> arguments) async {
   final parser = ArgParser()
     ..addFlag('offline', negatable: false)
@@ -72,6 +71,19 @@ Future<void> main(List<String> arguments) async {
       await file.copy(p.join(models.path, p.basename(file.path)));
     }
     await stageNativeCliAssets(Directory(package), Directory(bundle));
+    final sqliteVecLicense = await Directory(
+      p.join(bundle, 'licenses', 'sqlite_vec'),
+    ).create(recursive: true);
+    await File(
+      p.join(
+        workspace,
+        'packages',
+        'wayfinder_drift',
+        'third_party',
+        'sqlite_vec',
+        'LICENSE-MIT',
+      ),
+    ).copy(p.join(sqliteVecLicense.path, 'LICENSE-MIT'));
     await stageDependencyLicenses(Directory(bundle), [
       'wayfinder_cli',
       'wayfinder',

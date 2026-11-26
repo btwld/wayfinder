@@ -1,7 +1,12 @@
-# Unreleased
+# 0.5.0-beta.2 (unreleased)
 
 - Add `wayfinder status <bundle>` to verify the saved index without loading a
-  model. CLI and MCP continue to use plain-file generations by default.
+  model.
+- CLI and MCP publish SQLite generations and search them through sqlite-vec.
+  The first index of an unchanged, verified plain-file generation republishes
+  it without opening the encoder or embedding. Older CLI releases cannot read
+  a SQLite generation. Reindexing with an older release rebuilds the index and
+  embeds the source passages again.
 
 # 0.5.0-beta.1
 

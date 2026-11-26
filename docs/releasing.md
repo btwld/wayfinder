@@ -10,6 +10,7 @@ The public repository is `btwld/wayfinder`. All Dart packages use the
 | `wayfinder` | Core Profile validation library | `wayfinder-core-v<version>` | `publish-wayfinder.yml` |
 | `wayfinder_cli` | `wayfinder` command and MCP server | `wayfinder-v<version>` | `publish-wayfinder-cli.yml` |
 | `wayfinder_embeddings` | Reusable retrieval library | `wayfinder_embeddings-v<version>` | `publish-wayfinder-embeddings.yml` |
+| `wayfinder_drift` | SQLite storage and sqlite-vec search | `wayfinder_drift-v<version>` | `publish-wayfinder-drift.yml` |
 | `wayfinder_objectbox` | Persistent ObjectBox embedding store | `wayfinder_objectbox-v<version>` | `publish-wayfinder-objectbox.yml` |
 
 The application retains `wayfinder-v` tags and native archive names for installer
@@ -38,7 +39,7 @@ runtime availability and project pins before landing the format/plugin flip.
 The [0.5 compatibility contract](stability.md) names the public surfaces and
 support/migration boundaries.
 
-Preparation does not publish. Publish changed core or `wayfinder_embeddings`
+Preparation does not publish. Publish changed core, embeddings and storage
 dependencies before the CLI, then resolve the CLI from hosted dependencies
 outside the workspace and run its publish dry run. An unchanged dependency does
 not need another release. `tool/ci/verify-workspace-floors.py` keeps each
@@ -81,10 +82,11 @@ resumes.
 1. Merge the preparation change and obtain successful source CI for that
    exact commit, including all three native platforms.
 2. Publish `wayfinder-core-v<version>`, then
-   `wayfinder_embeddings-v<version>`, at the same checked commit and wait for
-   each package to become available on pub.dev. Skip any package that did not
-   change. Publish `wayfinder_objectbox-v<version>` after its embeddings
-   sibling becomes available on pub.dev.
+   `wayfinder_embeddings-v<version>` at the same checked commit and wait for
+   each package to become available on pub.dev. Then publish
+   `wayfinder_drift-v<version>` and `wayfinder_objectbox-v<version>` after
+   their embeddings sibling becomes available on pub.dev. Skip any package
+   that did not change.
 3. Outside the workspace, resolve the CLI with hosted dependencies (no path
    overrides), analyze it and run `dart pub publish --dry-run`.
 4. Publish `wayfinder-v<version>` at the same checked commit and wait for CLI
@@ -119,7 +121,7 @@ The native distribution workflow reuses this same CI eligibility check before
 downloading artifacts; a successful PR or feature-branch push cannot replace
 release-eligible push/main CI.
 
-The CLI's sibling floors name the prepared core and embeddings versions.
+The CLI's sibling floors name the prepared core, embeddings and storage versions.
 Until those versions exist on pub.dev, the hosted-dependency and hosted-CLI
 gates are **blocked**, not a successful workspace simulation or a demonstrated
 CLI defect. Follow the publication order above; a workspace `dart pub publish
@@ -176,11 +178,12 @@ overwrite published archives.
 configuration accepts `btwld/wayfinder` tags matching
 `wayfinder-v{{version}}`. The core package accepts
 `wayfinder-core-v{{version}}`, and `wayfinder_embeddings` accepts
-`wayfinder_embeddings-v{{version}}`. For the first `wayfinder_objectbox`
-release, run the same source CI and hosted sibling gates before publishing with
-`dart pub publish` under the same publisher. Then enable GitHub publishing for
-`wayfinder_objectbox-v{{version}}` in the package settings. GitHub tag creation
-using the built-in
+`wayfinder_embeddings-v{{version}}`. For the first `wayfinder_drift` and
+`wayfinder_objectbox` releases, run the same source CI and hosted sibling gates
+before publishing with `dart pub publish` under the same publisher. Then enable
+GitHub publishing for `wayfinder_drift-v{{version}}` and
+`wayfinder_objectbox-v{{version}}` in each package's settings. GitHub tag
+creation using the built-in
 workflow token must not be relied on to trigger publication. Each publish
 workflow recognizes an already-published version and skips upload.
 

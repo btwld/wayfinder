@@ -159,6 +159,9 @@ def main():
             assert first["embeddedChunks"] > 0
             pointer = Path(first["index"]) / "current"
             generation = pointer.read_text()
+            assert [entry.name for entry in (pointer.parent / generation).iterdir()] == [
+                "index.sqlite"
+            ]
             found = check("semantic-search", lambda: server.tool("search", {
                 "query": "How can I regain access after forgetting my password?", "limit": 3,
             }))

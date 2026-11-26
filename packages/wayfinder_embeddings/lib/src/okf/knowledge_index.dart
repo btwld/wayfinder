@@ -20,6 +20,7 @@ import '../models/embedding.dart';
 import '../models/search_result.dart';
 import '../storage/base_store.dart';
 import '../store/generation_format.dart';
+import '../util/float32.dart';
 import '../util/similarity.dart';
 import 'knowledge_snapshot.dart';
 
@@ -700,7 +701,7 @@ class KnowledgeIndex {
   static ({Float32List vector, double scoreError}) _nearestQuery(
     List<double> query,
   ) {
-    final scale = query.fold(0.0, (top, value) => math.max(top, value.abs()));
+    final scale = vectorScale(query, 'query');
     var vector = Float32List.fromList(query);
     if (scale == 0 ||
         query.indexed.every((entry) => entry.$2 == vector[entry.$1])) {
@@ -711,10 +712,7 @@ class KnowledgeIndex {
         vector.every((value) => value == 0)) {
       vector = Float32List.fromList(scaled);
     }
-    final roundedScale = vector.fold(
-      0.0,
-      (top, value) => math.max(top, value.abs()),
-    );
+    final roundedScale = vectorScale(vector);
     final rounded = [for (final value in vector) value / roundedScale];
     double norm(List<double> values) =>
         math.sqrt(values.fold(0.0, (sum, value) => sum + value * value));

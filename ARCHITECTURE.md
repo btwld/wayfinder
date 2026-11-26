@@ -114,7 +114,7 @@ Adoption therefore can remain incomplete after a failed final gate, and existing
 
 Date: 2026-10-24; model lookup correction 2026-10-26; storage/search amendment 2026-11-25.
 
-Replace application ObjectBox indexes with immutable snapshot/vector generations and an atomically replaced current pointer so readers can use the previous publication during refresh without a writer lock. The plain-file implementation still scans eligible rows exactly; other formats can supply candidates as specified in [Storage and search abstraction](#storage-and-search-abstraction).
+Replace application ObjectBox indexes with immutable snapshot/vector generations and an atomically replaced current pointer so readers can use the previous publication during refresh without a writer lock. Each format returns the same exact nearest rows from the eligible set. The plain-file implementation finds them by scanning that set. See [Storage and search abstraction](#storage-and-search-abstraction).
 Search exposes refresh/source-change notices and refuses stale snapshots outside refresh, while every index/prune collects expired generations (ADR-0026); duplicate storage during staging, rebuilds on upgrade, deferred Windows deletion and filesystem-dependent locking remain costs.
 [Storage and source notices](packages/wayfinder_cli/README.md#local-storage) remain operational docs, and [model lookup](packages/wayfinder_cli/README.md#embedding-model-lookup) uses explicit override, installed bundle, working/source development models, then verified cache, correcting ADR-0026's former order.
 
@@ -128,7 +128,13 @@ A registered generation format stores each immutable generation and returns its 
 
 Date: 2026-11-25.
 
-Move the persistent `BaseStore` driver and its native dependency to [`wayfinder_objectbox`](packages/wayfinder_objectbox/README.md) so retrieval hosts can use the embeddings library without resolving ObjectBox. The saved-generation probe on Linux x64 with ObjectBox 6.0.0-beta2 measured changed `lock.mdb` bytes after a read-only session, and the approximate pool missed exact neighbors on the synthetic corpus, so ship the store and keep application indexes on plain-file generations.
+Move the persistent `BaseStore` driver and its native dependency to [`wayfinder_objectbox`](packages/wayfinder_objectbox/README.md) so retrieval hosts can use the embeddings library without resolving ObjectBox. The saved-generation probe on Linux x64 with ObjectBox 6.0.0-beta2 measured changed `lock.mdb` bytes after a read-only session, and the approximate pool missed exact neighbors on the synthetic corpus, so ship the store only; application indexes use plain-file or SQLite generations.
+
+## SQLite generation storage for CLI and MCP
+
+Date: 2026-11-25.
+
+Use a single SQLite file with sqlite-vec for CLI and MCP generations to move filtered nearest-row selection into native code while preserving the generation contract and republishing verified plain-file indexes without inference. Float32 distance rounding and the native candidate limit require exact fallback, and the CLI bundle carries the pinned platform extension. See [wayfinder_drift](packages/wayfinder_drift/README.md).
 
 ## Shared effective vocabulary (ADR-0027)
 
@@ -180,7 +186,7 @@ The package stays out of the pub workspace and root analysis so that CLI and lib
 
 Date: 2026-11-05.
 
-Adopt Ack 2 and analyzer 13 for host dependency compatibility. Supporting analyzer 13 in this workspace also moves the ObjectBox generator and its paired Dart and native runtime to 6 preview/beta. This accepts prerelease risk and requires ObjectBox 5 consumers to upgrade, while CLI knowledge indexes keep using plain-file generations. Exit: move the override, installer and manifest to the first stable ObjectBox 6 release, keeping every entity id and UID.
+Adopt Ack 2 and analyzer 13 for host dependency compatibility. Supporting analyzer 13 in this workspace also moves the ObjectBox generator and its paired Dart and native runtime to 6 preview/beta. This accepts prerelease risk and requires ObjectBox 5 consumers to upgrade. Move the override, installer and manifest to the first stable ObjectBox 6 release while keeping every entity ID and UID. CLI knowledge indexes use [SQLite generation storage](#sqlite-generation-storage-for-cli-and-mcp).
 
 ## Consolidated knowledge entries and model-free reader backends
 

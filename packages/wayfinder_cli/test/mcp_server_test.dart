@@ -11,13 +11,14 @@ import 'package:wayfinder/wayfinder.dart';
 import 'package:wayfinder_cli/src/cli.dart';
 import 'package:wayfinder_cli/src/mcp_server.dart';
 import 'package:wayfinder_cli/src/messages.dart';
+import 'package:wayfinder_drift/wayfinder_drift.dart';
 import 'package:wayfinder_embeddings/knowledge_store.dart';
 import 'package:wayfinder_embeddings/testing.dart';
 
 import 'support.dart';
 
 void main() {
-  test('CLI publishes the plain-file marker that MCP reads', () async {
+  test('CLI publishes the SQLite marker that MCP reads', () async {
     final temp = await Directory.systemTemp.createTemp('wayfinder-cli-to-mcp-');
     addTearDown(() => temp.delete(recursive: true));
     final bundle = await Directory(p.join(temp.path, 'knowledge')).create();
@@ -33,7 +34,7 @@ void main() {
             create: () => DeterministicTestEmbedder(vectorOf: keywordVector),
           ),
           retainEncoder: retain,
-          formats: const [PlainFileGenerationFormat()],
+          formats: const [SqliteGenerationFormat()],
         );
     final output = <String>[];
     final errors = <String>[];
@@ -50,7 +51,7 @@ void main() {
     final generation = File(p.join(index, 'current')).readAsStringSync();
     expect(
       File(
-        p.join(index, generation, const PlainFileGenerationFormat().marker),
+        p.join(index, generation, const SqliteGenerationFormat().marker),
       ).existsSync(),
       isTrue,
     );
@@ -95,12 +96,12 @@ void main() {
       await transport.close();
       await serving;
     }
-    final vectors = File(
-      p.join(index, generation, IndexGeneration.vectorsFile),
+    final database = File(
+      p.join(index, generation, const SqliteGenerationFormat().marker),
     );
-    final bytes = await vectors.readAsBytes();
-    bytes[bytes.length - 1] ^= 1;
-    await vectors.writeAsBytes(bytes);
+    final bytes = await database.readAsBytes();
+    bytes[0] ^= 1;
+    await database.writeAsBytes(bytes);
     output.clear();
     expect(await cli.run(['status', bundle.path, '--output=json']), 0);
     expect((jsonDecode(output.single) as Map)['status'], 'incompatible');

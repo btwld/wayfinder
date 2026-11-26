@@ -90,6 +90,13 @@ gates. The separate stable ObjectBox job runs the
 [driver's tests](../packages/wayfinder_objectbox/README.md#development) and the
 judged retrieval gate through its HNSW search.
 
+The `wayfinder_drift` lane exercises the SQLite generation and mutable store
+contracts on minimum Dart and stable without an embedding model:
+
+```sh
+(cd packages/wayfinder_drift && dart test --concurrency=2)
+```
+
 `dart run melos run lint` checks all workspace packages. Package test runs are
 serialized because workspace members share native build-hook output; concurrent
 runs can race during library copying or macOS codesigning. Use concurrency 2 for

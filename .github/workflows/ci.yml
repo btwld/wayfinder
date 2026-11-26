@@ -71,6 +71,13 @@ jobs:
         with:
           path: ${{ steps.llamadart.outputs.path }}
           key: ${{ runner.os }}-${{ runner.arch }}-${{ steps.llamadart.outputs.key }}
+      # Restore only the downloaded SQLite binaries. The hook rechecks their
+      # pinned hashes, so older cache entries can seed a new resolution.
+      - uses: actions/cache@v4
+        with:
+          path: .dart_tool/hooks_runner/shared/sqlite3/build/download-*
+          key: ${{ runner.os }}-${{ runner.arch }}-sqlite3-${{ hashFiles('pubspec.lock') }}
+          restore-keys: ${{ runner.os }}-${{ runner.arch }}-sqlite3-
       - run: bash tool/ci/verify-installer-pins.sh
         shell: bash
         working-directory: .
@@ -111,6 +118,11 @@ jobs:
         working-directory: packages/wayfinder_storage_testing
       - run: dart test
         working-directory: packages/wayfinder_storage_testing
+      - if: matrix.sdk == 'stable'
+        run: dart format --output=none --set-exit-if-changed .
+        working-directory: packages/wayfinder_drift
+      - run: dart test --concurrency=2
+        working-directory: packages/wayfinder_drift
       - if: matrix.sdk == 'stable'
         run: dart format --output=none --set-exit-if-changed .
         working-directory: packages/wayfinder_cli
@@ -193,6 +205,11 @@ jobs:
         with:
           path: ${{ steps.llamadart.outputs.path }}
           key: ${{ runner.os }}-${{ runner.arch }}-${{ steps.llamadart.outputs.key }}
+      - uses: actions/cache@v4
+        with:
+          path: .dart_tool/hooks_runner/shared/sqlite3/build/download-*
+          key: ${{ runner.os }}-${{ runner.arch }}-sqlite3-${{ hashFiles('pubspec.lock') }}
+          restore-keys: ${{ runner.os }}-${{ runner.arch }}-sqlite3-
       - uses: actions/cache@v4
         with:
           path: packages/wayfinder_embeddings/models

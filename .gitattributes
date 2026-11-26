@@ -34,3 +34,8 @@ packages/wayfinder_cli/test/goldens/** text eol=lf
 # seeds_test compares SEEDING.md's blocks with KnowledgeSeeds byte for byte,
 # and the skills are installed as written.
 skills/** text eol=lf
+
+# Frozen generation and vendored libraries preserve exact bytes.
+packages/wayfinder_storage_testing/test/fixtures/plain-generation/*.json text eol=lf
+packages/wayfinder_storage_testing/test/fixtures/plain-generation/*.f32 binary
+packages/wayfinder_drift/third_party/sqlite_vec/vec0.* binary

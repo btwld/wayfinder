@@ -1,14 +1,14 @@
 import 'dart:math';
 
-import 'checks.dart';
+import 'float32.dart';
 
 /// Computes cosine similarity between two vectors.
 ///
 /// Finite vectors are scaled before accumulation to avoid overflow and
 /// underflow. A zero vector has similarity zero.
 double cosineSimilarity(List<double> a, List<double> b) {
-  final scaleA = _validateSimilarityVector(a, 'a');
-  final scaleB = _validateSimilarityVector(b, 'b');
+  final scaleA = vectorScale(a, 'a');
+  final scaleB = vectorScale(b, 'b');
   if (a.length != b.length) {
     throw ArgumentError.value(
       b.length,
@@ -29,17 +29,4 @@ double cosineSimilarity(List<double> a, List<double> b) {
     normB += valueB * valueB;
   }
   return (dotProd / (sqrt(normA) * sqrt(normB))).clamp(-1.0, 1.0);
-}
-
-double _validateSimilarityVector(List<double> vector, String name) {
-  if (vector.isEmpty) {
-    throw ArgumentError.value(vector, name, 'must not be empty');
-  }
-
-  var scale = 0.0;
-  for (final (index, value) in vector.indexed) {
-    checkFinite(value, '$name[$index]');
-    scale = max(scale, value.abs());
-  }
-  return scale;
 }
