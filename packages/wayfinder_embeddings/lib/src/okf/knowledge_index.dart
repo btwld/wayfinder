@@ -332,8 +332,8 @@ class KnowledgeIndex {
   /// Whether each passage is embedded with its title, description and section
   /// context (`okf-context-v2`) instead of its body alone (`okf-body-v1`).
   ///
-  /// Defaults to true, the input the CLI and the knowledge store use. An index
-  /// built with one setting cannot search vectors written with the other.
+  /// An index built with one setting cannot search vectors written with the
+  /// other.
   final bool includeContext;
   final Future<int> Function(String)? countTokens;
   final int? maxTokens;
