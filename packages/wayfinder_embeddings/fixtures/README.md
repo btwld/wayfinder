@@ -44,6 +44,12 @@ The 37 passages are fewer than ObjectBox's candidate floor, so the fixture check
 the ObjectBox result path but cannot exercise its HNSW approximation.
 See the [evaluation guide](../README.md#evaluation).
 
+The protocol at `7728c1f` records dense combined development recall@3 of 100%.
+The current 94% comes from the labelled `okf-context-v2` input of `9891dba`: it
+moves `guidance/queue-retry.md` 0.0015 cosine ahead of `guidance/payments.md`
+for the `negation` question, and the declared link from `queue-retry.md` then
+takes the last context slot.
+
 ## knowledge_retrieval/
 
 `cases.json` holds 13 synthetic chunks and 13 judged questions. Cases include
