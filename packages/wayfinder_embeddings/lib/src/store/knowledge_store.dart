@@ -630,6 +630,8 @@ class WayfinderKnowledgeStore {
         _remember(key, data.record, pinned.saved, vectors: pinned.verified);
       }
       await _collectGarbage(index, keep: generation);
+    } on GenerationOpenException catch (error) {
+      throw WayfinderException('index-incompatible', error.message);
     } finally {
       if (!published && await staged.exists()) {
         await staged.delete(recursive: true);

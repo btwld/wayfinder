@@ -9,6 +9,8 @@
 - Release preflight readers before encoder acquisition, then pin the generation
   used for searching. Preserve format diagnostics on an incompatible index and
   expose shared scoring and validation to storage drivers.
+- Report format initialization failures during publication as
+  `index-incompatible`.
 
 # 0.5.0-beta.1
 

@@ -22,7 +22,8 @@ final class GenerationGone implements Exception {
   const GenerationGone();
 }
 
-/// A format could not open a generation and has a diagnostic for the caller.
+/// A format could not open or create a generation and has a diagnostic for
+/// the caller.
 final class GenerationOpenException implements Exception {
   const GenerationOpenException(this.message);
 
@@ -58,6 +59,8 @@ abstract interface class GenerationFormat {
   ///
   /// Write only inside [staged], flush every file, and write [marker] last.
   /// Preserve every float32 bit.
+  /// Use [GenerationOpenException] to report a format-specific open failure
+  /// while creating the generation.
   Future<void> write(Directory staged, GenerationData data);
 
   /// Opens [generation] for reading and leaves it unchanged.

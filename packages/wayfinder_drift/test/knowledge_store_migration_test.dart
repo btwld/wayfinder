@@ -137,10 +137,14 @@ void main() {
   );
 
   test(
-    'opening without the native asset names sqlite-vec before search',
+    'a missing sqlite-vec asset refuses opens and preserves the old publication',
     () async {
       final result = await store.index(bundle);
       final generation = currentGeneration(result.index);
+      final plain = use([const PlainFileGenerationFormat(), format]);
+      expect((await plain.index(bundle)).embeddedChunks, 0);
+      final index = Directory(result.index);
+      final before = await treeBytes(index, lockContents: false);
       final snapshot = p.join(temp.path, 'missing_vec.dill');
       // A kernel snapshot run directly has no build-hook asset mapping.
       final compiled = await Process.run(Platform.resolvedExecutable, [
@@ -158,9 +162,16 @@ void main() {
       final probed = await Process.run(Platform.resolvedExecutable, [
         snapshot,
         generation.path,
+        p.join(temp.path, 'data'),
+        bundle.root,
       ]);
       expect(probed.exitCode, 0, reason: '${probed.stdout}\n${probed.stderr}');
-      expect(probed.stdout, contains('Could not load sqlite-vec v0.1.9'));
+      expect(probed.stdout, contains('open: Could not load sqlite-vec v0.1.9'));
+      expect(
+        probed.stdout,
+        contains('write: index-incompatible: Could not load sqlite-vec v0.1.9'),
+      );
+      expect(await treeBytes(index, lockContents: false), before);
     },
   );
 }
