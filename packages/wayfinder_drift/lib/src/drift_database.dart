@@ -6,6 +6,7 @@ import 'dart:io';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:sqlite3/sqlite3.dart' as sqlite;
+import 'package:wayfinder_embeddings/storage_driver.dart' show vectorScale;
 
 import 'float32_vector.dart';
 import 'sqlite_vec.dart';

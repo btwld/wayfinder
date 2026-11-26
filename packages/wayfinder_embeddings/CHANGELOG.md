@@ -14,6 +14,8 @@
 - Release preflight readers before encoder acquisition, then pin the generation
   used for searching. Preserve format diagnostics on an incompatible index and
   expose shared scoring and validation to storage drivers.
+- `storage_driver.dart` exports `vectorScale` and `encodeFloat32` for float32
+  storage drivers.
 - Report format initialization failures during publication as
   `index-incompatible`.
 
