@@ -45,11 +45,14 @@ bool shouldSkipComparison(List<String> args) {
 ///
 /// The parser is the single place that knows the option names, their defaults,
 /// and the value ranges each one accepts.
-final ArgParser compareArgParser = ArgParser()
+ArgParser _compareArgParser(
+  Iterable<String> stores,
+  String fixtures,
+) => ArgParser()
   ..addOption(
     'fixtures',
     help: 'Corpus folder to ingest.',
-    defaultsTo: 'fixtures/corpus',
+    defaultsTo: fixtures,
   )
   ..addOption(
     'output',
@@ -98,7 +101,7 @@ final ArgParser compareArgParser = ArgParser()
   ..addOption(
     'store',
     help: 'Storage backend.',
-    allowed: ['memory', 'objectbox'],
+    allowed: stores,
     defaultsTo: 'memory',
   )
   ..addOption('reranker-url', help: 'TEI reranker endpoint.')
@@ -137,10 +140,14 @@ class CompareOptions {
   CompareOptions._(this._results);
 
   /// Parses [args], throwing [ArgumentError] for an unusable value.
-  factory CompareOptions.parse(List<String> args) {
+  factory CompareOptions.parse(
+    List<String> args, {
+    Iterable<String> stores = const ['memory'],
+    String fixtures = 'fixtures/corpus',
+  }) {
     final ArgResults results;
     try {
-      results = compareArgParser.parse(args);
+      results = _compareArgParser(stores, fixtures).parse(args);
     } on FormatException catch (error) {
       throw ArgumentError(error.message);
     }
@@ -248,7 +255,7 @@ class CompareOptions {
     maxMrrDrop: _unitInterval('max-mrr-drop'),
   );
 
-  /// Storage backend, either `memory` or `objectbox`.
+  /// The selected storage backend.
   String get storeKind => _required('store');
 
   /// TEI reranker endpoint, or null.
@@ -838,16 +845,4 @@ String _requiredDescriptorSuffix({
     throw ArgumentError(message);
   }
   return suffix;
-}
-
-workflow.StoreFactory storeFactory(String name, String storeKind) {
-  switch (storeKind) {
-    case 'objectbox':
-      return (outputDir) =>
-          ObjectBoxStore.open(p.join(outputDir.path, '${name}_objectbox'));
-    case 'memory':
-      return (_) => MemoryStore();
-    default:
-      throw ArgumentError.value(storeKind, 'storeKind', 'Unsupported store');
-  }
 }

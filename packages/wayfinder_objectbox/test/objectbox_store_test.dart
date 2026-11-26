@@ -7,10 +7,11 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
-import 'package:wayfinder_embeddings/objectbox.g.dart';
-import 'package:wayfinder_embeddings/src/storage/embedding_entities.dart';
-import 'package:wayfinder_embeddings/src/storage/objectbox_entities.dart';
 import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
+import 'package:wayfinder_objectbox/objectbox.g.dart';
+import 'package:wayfinder_objectbox/src/storage/embedding_entities.dart';
+import 'package:wayfinder_objectbox/src/storage/objectbox_entities.dart';
+import 'package:wayfinder_objectbox/wayfinder_objectbox.dart';
 import 'package:wayfinder_storage_testing/wayfinder_storage_testing.dart';
 
 import 'support/objectbox_0_2_0_fixture.dart';
@@ -431,6 +432,20 @@ void main() {
       await store.close();
 
       expect(() => store.getAllChunks(), throwsStateError);
+    });
+
+    test('rejects blank identity filters when reading vectors', () async {
+      final store = createStore();
+      addTearDown(store.close);
+
+      await expectLater(
+        store.getEmbeddingsForChunks({'id'}, source: ' ', modelName: 'm'),
+        throwsArgumentError,
+      );
+      await expectLater(
+        store.getEmbeddingsForChunks(const {}, source: 's', modelName: ''),
+        throwsArgumentError,
+      );
     });
   }, skip: Platform.environment['WAYFINDER_REQUIRE_NATIVE'] != '1');
 }

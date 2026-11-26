@@ -11,14 +11,11 @@ class KnowledgeCases {
   final List<Map<String, Object?>> cases;
   final int limit;
 
-  static Future<KnowledgeCases> load() async {
+  static Future<KnowledgeCases> load({
+    String path = 'fixtures/knowledge_retrieval/cases.json',
+  }) async {
     final data =
-        jsonDecode(
-              await File(
-                'fixtures/knowledge_retrieval/cases.json',
-              ).readAsString(),
-            )
-            as Map<String, Object?>;
+        jsonDecode(await File(path).readAsString()) as Map<String, Object?>;
     final chunks = (data['chunks'] as List)
         .cast<Map<String, Object?>>()
         .map(Chunk.fromMap)

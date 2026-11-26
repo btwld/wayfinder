@@ -6,7 +6,6 @@ import 'package:path/path.dart' as p;
 import 'src/dependency_licenses.dart';
 import 'src/model_preparation.dart';
 import 'src/native_cli_assets.dart';
-import 'src/objectbox_assets.dart';
 
 /// Builds the existing retrieval evaluator with its verified local assets.
 Future<void> main(List<String> args) async {
@@ -35,7 +34,6 @@ Future<void> main(List<String> args) async {
       }
     }
     await verifyLlamaCppRuntime();
-    await verifiedObjectBoxLibrary(package);
     final model = await prepareEmbeddingModel(
       output: Directory('models'),
       offline: options.flag('offline'),
@@ -63,7 +61,6 @@ Future<void> main(List<String> args) async {
       await file.copy(p.join(bundle.path, 'models', p.basename(file.path)));
     }
     await File('LICENSE').copy(p.join(bundle.path, 'LICENSE'));
-    await stageObjectBoxAssets(package, bundle);
     await stageNativeCliAssets(package, bundle);
     await stageDependencyLicenses(bundle, ['wayfinder_embeddings']);
     stdout.writeln('Built retrieval bundle: ${bundle.path}');

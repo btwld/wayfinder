@@ -14,7 +14,20 @@ import 'src/retrieval_evaluator.dart';
 // ignore_for_file: avoid_slow_async_io
 // CLI comparison outputs are written synchronously to keep tooling simple.
 
-Future<void> main(List<String> args) async {
+Future<void> main(List<String> args) => runComparison(args);
+
+/// Runs the same evaluation with additional storage backends supplied by a
+/// workspace tool.
+Future<void> runComparison(
+  List<String> args, {
+  Map<String, workflow.StoreFactory> additionalStores = const {},
+  String fixtures = 'fixtures/corpus',
+  Directory? goldenRoot,
+}) async {
+  final stores = <String, workflow.StoreFactory>{
+    'memory': (_) => MemoryStore(),
+    ...additionalStores,
+  };
   if (shouldSkipComparison(args)) {
     stdout.writeln('Embedding comparison skipped by configuration.');
     return;
@@ -28,7 +41,11 @@ Future<void> main(List<String> args) async {
   late final List<QuerySpec> querySpecs;
   late final List<ComparisonRun> comparisonRuns;
   try {
-    options = CompareOptions.parse(args);
+    options = CompareOptions.parse(
+      args,
+      stores: stores.keys,
+      fixtures: fixtures,
+    );
     judgments = loadJudgments(options.qrelsPath);
     queryGroupsById = loadQueryGroups(
       explicitPath: options.queryGroupsPath,
@@ -127,16 +144,7 @@ Future<void> main(List<String> args) async {
     stdout.writeln('Reranker endpoint: $rerankerUrl');
     stdout.writeln('Reranker timeout: ${rerankerRequestTimeout.inSeconds}s.');
   }
-  switch (storeKind) {
-    case 'objectbox':
-      stdout.writeln('Storage backend: ObjectBox (persistent)');
-      break;
-    case 'memory':
-      stdout.writeln('Storage backend: MemoryStore (in-memory)');
-      break;
-    default:
-      throw StateError('Unsupported store kind: $storeKind');
-  }
+  stdout.writeln('Storage backend: $storeKind');
 
   final files = workflow.collectFixtureFiles(config.fixturesRoot);
   if (files.isEmpty) {
@@ -226,7 +234,7 @@ Future<void> main(List<String> args) async {
     stdout.writeln('\n2. Validating chunk manifest against golden snapshot...');
     try {
       await workflow.validateAgainstGolden(
-        packageRoot: config.packageRoot,
+        packageRoot: goldenRoot ?? config.packageRoot,
         fixturesDir: config.fixturesRoot,
         preview: preview,
       );
@@ -266,7 +274,7 @@ Future<void> main(List<String> args) async {
           rerankerUrl,
           rerankerRequestTimeout,
         ),
-        storeFactory: storeFactory(run.label, storeKind),
+        storeFactory: stores[storeKind]!,
       );
 
       comparisonResults[run.label] = ingestion;

@@ -122,7 +122,13 @@ Search exposes refresh/source-change notices and refuses stale snapshots outside
 
 Date: 2026-11-25. Amends ADR-0022.
 
-A registered generation format stores each immutable generation and returns its nearest rows. The core keeps publication, the canonical record and its checksum, and computes every final score, so ranking is the same in every format. This lets a database driver search a generation without a full scan. Plain files stay the default and always open. The core hashes every vector when it publishes, reuses or verifies a generation, not on each search; the cost is that a vector changed on disk after publication goes unnoticed until the next verification. See [Write a storage driver](packages/wayfinder_embeddings/README.md#write-a-storage-driver).
+A registered generation format stores each immutable generation and returns its nearest rows. The core keeps publication, the canonical record and its checksum, and computes every final score, so ranking is the same in every format. A driver can avoid a full scan when it can guarantee the exact nearest rows. Plain files stay the default and always open. The core hashes every vector when it publishes, reuses or verifies a generation, not on each search; the cost is that a vector changed on disk after publication goes unnoticed until the next verification. See [Write a storage driver](packages/wayfinder_embeddings/README.md#write-a-storage-driver).
+
+## Optional ObjectBox embedding store
+
+Date: 2026-11-25.
+
+Move the persistent `BaseStore` driver and its native dependency to [`wayfinder_objectbox`](packages/wayfinder_objectbox/README.md) so retrieval hosts can use the embeddings library without resolving ObjectBox. The saved-generation probe on Linux x64 with ObjectBox 6.0.0-beta2 measured changed `lock.mdb` bytes after a read-only session, and the approximate pool missed exact neighbors on the synthetic corpus, so ship the store and keep application indexes on plain-file generations.
 
 ## Shared effective vocabulary (ADR-0027)
 

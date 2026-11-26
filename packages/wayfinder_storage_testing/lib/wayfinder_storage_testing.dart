@@ -12,7 +12,8 @@ import 'src/knowledge_store_suite.dart';
 export 'src/generation_format_contract.dart';
 export 'src/generation_format_harness.dart';
 export 'src/store_contract.dart';
-export 'src/store_support.dart' show currentGeneration, treeBytes;
+export 'src/store_support.dart'
+    show copyStoreBundle, currentGeneration, treeBytes;
 export 'src/tracking_generation_format.dart';
 
 /// Exercises the store lifecycle against [harness], including publication,
