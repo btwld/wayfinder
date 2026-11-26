@@ -70,25 +70,15 @@ class StorageDatabase extends _$StorageDatabase {
     );
   }
 
+  // The setup callback rejects any other version before Drift migrates.
   @override
-  // Drift's schema exporter requires a literal getter.
-  int get schemaVersion => 1;
+  int get schemaVersion => _schemaVersion;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) async {
       await m.createAll();
       await customStatement('PRAGMA application_id = $_applicationId');
-    },
-    onUpgrade: (m, from, to) async => throw FormatException(
-      'Unsupported storage schema $from (expected $to).',
-    ),
-    beforeOpen: (details) async {
-      if (details.versionNow != schemaVersion) {
-        throw FormatException(
-          'Unsupported storage schema ${details.versionNow}.',
-        );
-      }
     },
   );
 
