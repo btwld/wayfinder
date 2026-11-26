@@ -87,7 +87,8 @@ flag enables native inference and makes missing prerequisites fail. Without the
 flag, native-tagged cases skip even when assets are installed. The stable
 native retrieval job also runs the bundle, integration and judged retrieval
 gates. The separate stable ObjectBox job runs the
-[driver's tests](../packages/wayfinder_objectbox/README.md#development).
+[driver's tests](../packages/wayfinder_objectbox/README.md#development) and the
+judged retrieval gate through its HNSW search.
 
 The `wayfinder_drift` lane exercises the SQLite generation and mutable store
 contracts on minimum Dart and stable without an embedding model:
