@@ -823,14 +823,23 @@ class KnowledgeIndex {
     final second = <String, SearchResult>{};
     if (policy.secondPassageMargin case final margin?) {
       for (final hit in ranked) {
-        final top = best[hit.chunk.sourcePath];
-        if (top == null ||
-            top.chunk.id == hit.chunk.id ||
-            !eligible.containsKey(hit.chunk.id) ||
+        final chunk = eligible[hit.chunk.id];
+        final top = chunk == null ? null : best[chunk.sourcePath];
+        if (chunk == null ||
+            top == null ||
+            top.chunk.id == chunk.id ||
             hit.similarity < top.similarity - margin) {
           continue;
         }
-        second.putIfAbsent(hit.chunk.sourcePath, () => hit);
+        // Like the best passage, cite the stored chunk, never the caller's.
+        second.putIfAbsent(
+          chunk.sourcePath,
+          () => SearchResult(
+            chunk: chunk,
+            embedding: hit.embedding,
+            similarity: hit.similarity,
+          ),
+        );
       }
     }
     final byPath = <String, Chunk>{};

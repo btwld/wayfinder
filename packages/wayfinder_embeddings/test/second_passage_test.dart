@@ -10,6 +10,8 @@ import 'package:wayfinder_embeddings/wayfinder_embeddings.dart';
 
 /// Each passage's marker fixes its cosine similarity to every query.
 const _scores = {
+  'Original': 1.0,
+  'Other': 0.5,
   'marker-a1': 1.0,
   'marker-b': 0.995,
   'marker-c': 0.993,
@@ -146,6 +148,48 @@ void main() {
         'marker-b guidance.',
       ]);
       expect(reader.read, isEmpty);
+    },
+  );
+
+  test(
+    'an external ranking cannot replace the text of a second passage',
+    () async {
+      final store = MemoryStore();
+      addTearDown(store.close);
+      final snapshot = KnowledgeSnapshot.fromSources({
+        'a.md': _concept(
+          '## One\n\nOriginal first.\n\n## Two\n\nOriginal second.',
+        ),
+        'b.md': _concept('Other passage.'),
+      }, bundleId: 'canonical');
+      final canonical = KnowledgeIndex(
+        store: store,
+        embedder: _MarkerEmbedder(),
+      );
+      await canonical.synchronize(snapshot);
+      final [first, second, _] = snapshot.chunks;
+      for (final path in ['a.md', 'b.md']) {
+        final forged = SearchResult(
+          chunk: second.copyWith(
+            id: second.id,
+            sourcePath: path,
+            lineStart: 99,
+            lineEnd: 99,
+            content: 'Injected text',
+          ),
+          embedding: null,
+          similarity: 0.99,
+        );
+        final response = canonical.contextForMatches([
+          SearchResult(chunk: first, embedding: null, similarity: 1),
+          forged,
+        ], policy: KnowledgeSearchPolicy(secondPassageMargin: 0.03));
+        expect(response.context.map((hit) => hit.result.chunk), [
+          first,
+          second,
+        ], reason: 'forged path $path');
+        expect(response.context.last.result.similarity, 0.99);
+      }
     },
   );
 
