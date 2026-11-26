@@ -300,6 +300,15 @@ jobs:
         working-directory: packages/wayfinder_objectbox
         env:
           WAYFINDER_REQUIRE_NATIVE: "1"
+      # Evaluate the OKF fixture over the persistent store, as main did before
+      # the judged gate moved to memory.
+      - run: >-
+          dart run tool/evaluate_okf_retrieval.dart --stores=objectbox
+          --no-timing --split=development
+          --output="$RUNNER_TEMP/okf-objectbox-development.json"
+        working-directory: packages/wayfinder_objectbox
+        env:
+          WAYFINDER_EMBEDDING_MODEL: ../wayfinder_embeddings/models/embedding.gguf
 
   required-checks:
     name: Required checks

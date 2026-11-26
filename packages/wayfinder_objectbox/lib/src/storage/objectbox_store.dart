@@ -161,6 +161,8 @@ class ObjectBoxStore extends BaseStore {
     required String modelName,
   }) async {
     _ensureOpen();
+    validateEmbeddingIdentityFilter(source, 'source');
+    validateEmbeddingIdentityFilter(modelName, 'modelName');
     if (chunkIds.isEmpty) return const [];
     final query = _embeddingBox
         .query(

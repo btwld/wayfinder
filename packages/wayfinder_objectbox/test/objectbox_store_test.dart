@@ -433,5 +433,19 @@ void main() {
 
       expect(() => store.getAllChunks(), throwsStateError);
     });
+
+    test('rejects blank identity filters when reading vectors', () async {
+      final store = createStore();
+      addTearDown(store.close);
+
+      await expectLater(
+        store.getEmbeddingsForChunks({'id'}, source: ' ', modelName: 'm'),
+        throwsArgumentError,
+      );
+      await expectLater(
+        store.getEmbeddingsForChunks(const {}, source: 's', modelName: ''),
+        throwsArgumentError,
+      );
+    });
   }, skip: Platform.environment['WAYFINDER_REQUIRE_NATIVE'] != '1');
 }
