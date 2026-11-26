@@ -7,6 +7,7 @@ import 'package:mcp_dart/mcp_dart.dart';
 import 'package:path/path.dart' as p;
 import 'package:wayfinder_cli/src/mcp_server.dart';
 import 'package:wayfinder_cli/src/messages.dart';
+import 'package:wayfinder_drift/wayfinder_drift.dart';
 import 'package:wayfinder_embeddings/knowledge_store.dart';
 import 'package:wayfinder_embeddings/testing.dart';
 
@@ -854,6 +855,7 @@ void main() {
         final store = WayfinderKnowledgeStore(
           dataDirectory: data,
           encoder: _InstalledIdentityProvider(),
+          formats: const [SqliteGenerationFormat()],
         );
         final target = ProjectBundle(
           'knowledge',
@@ -864,19 +866,45 @@ void main() {
         expect(await store.status(target), isA<KnowledgeIndexCurrent>());
         await store.dispose();
 
-        final result = await Process.run(
-          Platform.resolvedExecutable,
-          ['run', 'bin/wayfinder.dart', 'index', bundle.path, '--detach'],
+        // Dart 3.11 stages JIT assets in the package's .dart_tool/lib. A
+        // nested dart run can truncate libraries this test runner has already
+        // mapped (dart-lang/native#2921). Build into a separate directory.
+        final buildOutput = p.join(temp.path, 'app');
+        final build = await Process.run(Platform.resolvedExecutable, [
+          'build',
+          'cli',
+          '--target=bin/wayfinder.dart',
+          '--output=$buildOutput',
+        ]);
+        expect(build.exitCode, 0, reason: '${build.stdout}\n${build.stderr}');
+        final executable = p.join(
+          buildOutput,
+          'bundle',
+          'bin',
+          Platform.isWindows ? 'wayfinder.exe' : 'wayfinder',
+        );
+        Future<ProcessResult> detach({String? model}) => Process.run(
+          executable,
+          ['index', bundle.path, '--detach', '--output=json'],
           environment: {
             for (final entry in Platform.environment.entries)
-              if (entry.key != 'KNOWLEDGE_EMBEDDING_MODEL')
+              if (entry.key != 'KNOWLEDGE_EMBEDDING_MODEL' &&
+                  entry.key != 'WAYFINDER_EMBEDDING_MODEL')
                 entry.key: entry.value,
             'WAYFINDER_DATA_DIR': data.path,
-            'WAYFINDER_EMBEDDING_MODEL': p.join(temp.path, 'missing.gguf'),
             'WAYFINDER_NO_UPDATE_CHECK': '1',
+            'WAYFINDER_EMBEDDING_MODEL': ?model,
           },
           includeParentEnvironment: false,
         );
+        final current = await detach();
+        expect(current.exitCode, 0, reason: '${current.stderr}');
+        expect(
+          jsonDecode(current.stdout as String),
+          containsPair('detached', 'current'),
+        );
+
+        final result = await detach(model: p.join(temp.path, 'missing.gguf'));
         expect(result.exitCode, 2, reason: '${result.stdout}');
         expect(result.stderr, contains('missing.gguf'));
         expect(result.stdout, isNot(contains('current')));
