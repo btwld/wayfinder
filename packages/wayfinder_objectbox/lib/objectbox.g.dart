@@ -124,7 +124,12 @@ final _entities = <obx_int.ModelEntity>[
         type: 28,
         flags: 8,
         indexId: const obx_int.IdUid(12, 6544511921717568125),
-        hnswParams: obx_int.ModelHnswParams(dimensions: 384, distanceType: 2),
+        hnswParams: obx_int.ModelHnswParams(
+          dimensions: 384,
+          neighborsPerNode: 64,
+          indexingSearchCount: 100,
+          distanceType: 2,
+        ),
       ),
       obx_int.ModelProperty(
         id: const obx_int.IdUid(7, 3365368693757389608),
