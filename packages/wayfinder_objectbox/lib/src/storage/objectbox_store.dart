@@ -83,9 +83,7 @@ class ObjectBoxStore extends BaseStore {
 
   /// HNSW candidate floor, independent of the requested result limit.
   ///
-  /// A wider pool trades work for recall. On 2,675 real-model passages, 200
-  /// returned the exact top 10 for all 260 queries at about 7 ms each; 50
-  /// returned 99% of those results in about 2 ms.
+  /// A wider pool trades query work for closeness to exact ranking.
   final int minimumSearchCandidates;
   final Box<ChunkEntity> _chunkBox;
   final Box<EmbeddingEntity> _embeddingBox;
