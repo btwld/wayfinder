@@ -46,6 +46,10 @@ workspace checkout. For commands that load the model, prepare it as above and
 set `WAYFINDER_EMBEDDING_MODEL=../wayfinder_embeddings/models/embedding.gguf`.
 
 ```sh
+dart run tool/evaluate_okf_retrieval.dart --stores=objectbox --no-timing \
+  --split=development,held_out \
+  --baselines=../wayfinder_embeddings/fixtures/benchmarks/okf_retrieval \
+  --output=okf-objectbox.json
 dart run tool/compare_embeddings.dart --store=objectbox --queries=QUERIES
 dart run tool/benchmark_stores.dart DENSE_ARTIFACT_DIR OUTPUT
 dart run tool/benchmark_retrieval_scale.dart SIZE OUTPUT

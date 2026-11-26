@@ -338,7 +338,7 @@ dart run tool/prepare_model.dart
 dart run example/knowledge_example.dart
 
 # Compare retrieval components on the committed OKF fixture.
-dart run tool/evaluate_okf_retrieval.dart --stores=memory --split=development --output=comparison_results/okf-development.json
+dart run tool/evaluate_okf_retrieval.dart --split=development --output=comparison_results/okf-development.json
 
 # Build the generic corpus evaluation CLI with its native assets.
 dart run tool/build_wayfinder_embeddings.dart --offline
@@ -743,6 +743,20 @@ dart run tool/compare_embeddings.dart \
 
 The gate allows absolute drops of 0.05 Recall@10 and 0.03 nDCG@10 by default.
 Update goldens with `UPDATE_GOLDENS=1` only after reviewing the content change.
+
+The OKF fixture gate checks each store's baseline on both splits:
+
+```bash
+dart run tool/evaluate_okf_retrieval.dart --no-timing \
+  --split=development,held_out \
+  --baselines=fixtures/benchmarks/okf_retrieval \
+  --output=comparison_results/okf-memory.json
+```
+
+Run the same command from `packages/wayfinder_drift` or
+`packages/wayfinder_objectbox` with `--stores=drift` or `--stores=objectbox`,
+`--baselines=../wayfinder_embeddings/fixtures/benchmarks/okf_retrieval` and
+`WAYFINDER_EMBEDDING_MODEL=../wayfinder_embeddings/models/embedding.gguf`.
 
 The judged corpus is mostly Dart, and this package has no Dart chunker.
 `--reference-chunks` replays the corpus golden's chunks for every file no

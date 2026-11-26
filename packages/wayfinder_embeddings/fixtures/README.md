@@ -33,7 +33,15 @@ and held-out splits contain 18 and 17 questions. This unprofiled fixture is not
 a normative bundle template. Do not adjust judgments to fit model output.
 
 `dart run tool/evaluate_okf_retrieval.dart --output=REPORT` requires the local
-model. It reports dense results for the memory store and the context-policy variants.
+model. `knowledge/*` runs search through `KnowledgeIndex`, which scores every
+stored vector in Dart, for each context-policy variant; their cutoff is the
+fixture's three context slots. `findSimilar/*` runs query the stored body and
+context vectors through the store's own `findSimilar` at ten results, so
+approximate native search is measured, and compare each list with exact cosine
+ranking (`exactRecall`, `maxScoreDelta`). Both report recall, MRR, nDCG and
+top-1. The Drift and ObjectBox packages have the same tool for their stores.
+The 37 passages are fewer than ObjectBox's candidate floor, so the fixture checks
+the ObjectBox result path but cannot exercise its HNSW approximation.
 See the [evaluation guide](../README.md#evaluation).
 
 ## knowledge_retrieval/
@@ -78,6 +86,12 @@ judgment and is not a new evaluation. Its original model identity predates the
 current identity spelling; the gate compares metric drops, not that old string.
 The original run used the recorded truncation policy. Do not present its results
 as current accuracy on a different corpus, chunk policy, or model.
+
+`okf_retrieval/` holds one baseline per store for the OKF fixture's recall,
+MRR and, for `findSimilar/*` runs, `exactRecall` on both splits, recorded on
+Linux x64. `--baselines` fails a run that drops more than 0.01 below any of
+them, or whose model or queries differ. Refresh a store's file with
+`--update-baselines` only after reviewing the per-query change.
 
 Obsolete multi-method reports are retired from the active tree. Their committed
 originals remain in Git history; current reproduction uses the [evaluation guide](../README.md#evaluation).

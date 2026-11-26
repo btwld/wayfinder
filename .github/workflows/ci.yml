@@ -231,11 +231,25 @@ jobs:
         working-directory: .
       - run: dart run tool/evaluate_knowledge_cases.dart "$RUNNER_TEMP/knowledge-cases.json"
         shell: bash
-      - name: Compare OKF retrieval components on both fixed splits
+      # Each gate checks judged relevance and compares the store's findSimilar
+      # results with exact cosine ranking.
+      - name: Gate OKF retrieval on the memory store
         shell: bash
-        run: |
-          dart run tool/evaluate_okf_retrieval.dart --no-timing --split=development --output="$RUNNER_TEMP/okf-development.json"
-          dart run tool/evaluate_okf_retrieval.dart --no-timing --split=held_out --output="$RUNNER_TEMP/okf-held-out.json"
+        run: >-
+          dart run tool/evaluate_okf_retrieval.dart --no-timing
+          --split=development,held_out
+          --baselines=fixtures/benchmarks/okf_retrieval
+          --output="$RUNNER_TEMP/okf-memory.json"
+      - name: Gate OKF retrieval on the Drift store
+        shell: bash
+        working-directory: packages/wayfinder_drift
+        env:
+          WAYFINDER_EMBEDDING_MODEL: ../wayfinder_embeddings/models/embedding.gguf
+        run: >-
+          dart run tool/evaluate_okf_retrieval.dart --stores=drift --no-timing
+          --split=development,held_out
+          --baselines=../wayfinder_embeddings/fixtures/benchmarks/okf_retrieval
+          --output="$RUNNER_TEMP/okf-drift.json"
       - run: dart run tool/build_wayfinder_embeddings.dart --offline
       - name: Run relocated native bundle against the judged corpus
         shell: bash
@@ -284,6 +298,7 @@ jobs:
           name: wayfinder-native-${{ runner.os }}-${{ runner.arch }}
           path: build/wayfinder-*.tar.gz*
       - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
         with:
           name: native-retrieval-${{ matrix.os }}-${{ matrix.sdk }}
           path: |
@@ -291,8 +306,8 @@ jobs:
             ${{ runner.temp }}/wayfinder-mcp.json
             ${{ runner.temp }}/retrieval-metrics.json
             ${{ runner.temp }}/knowledge-cases.json
-            ${{ runner.temp }}/okf-development.json
-            ${{ runner.temp }}/okf-held-out.json
+            ${{ runner.temp }}/okf-memory.json
+            ${{ runner.temp }}/okf-drift.json
 
   native-objectbox:
     needs: changes
@@ -317,15 +332,20 @@ jobs:
         working-directory: packages/wayfinder_objectbox
         env:
           WAYFINDER_REQUIRE_NATIVE: "1"
-      # Evaluate the OKF fixture over the persistent store, as main did before
-      # the judged gate moved to memory.
+      # Gate the OKF fixture on ObjectBox, whose findSimilar is approximate HNSW.
       - run: >-
           dart run tool/evaluate_okf_retrieval.dart --stores=objectbox
-          --no-timing --split=development
-          --output="$RUNNER_TEMP/okf-objectbox-development.json"
+          --no-timing --split=development,held_out
+          --baselines=../wayfinder_embeddings/fixtures/benchmarks/okf_retrieval
+          --output="$RUNNER_TEMP/okf-objectbox.json"
         working-directory: packages/wayfinder_objectbox
         env:
           WAYFINDER_EMBEDDING_MODEL: ../wayfinder_embeddings/models/embedding.gguf
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: native-objectbox-okf
+          path: ${{ runner.temp }}/okf-objectbox.json
 
   required-checks:
     name: Required checks
