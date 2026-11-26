@@ -13,7 +13,8 @@ const _scores = {
   'marker-a2': 0.99,
   'marker-c': 0.96,
   'marker-z': 0.95,
-  'marker-b': 0.1,
+  'marker-b1': 0.1,
+  'marker-b2': 0.09,
   'marker-w': 0.05,
 };
 
@@ -47,12 +48,12 @@ void main() {
       'of a small bundle', () async {
     final temp = await Directory.systemTemp.createTemp('wayfinder-second-');
     addTearDown(() => temp.delete(recursive: true));
-    // Three concepts: a's two passages and c's link to b would exceed a
-    // context limit of three passages.
+    // Three concepts: the second passages of a and of c's linked b would
+    // exceed a context limit of three passages.
     final small = await _bundle(temp, 'small', {
       'a.md': '## One\n\nmarker-a1 guidance.\n\n## Two\n\nmarker-a2 guidance.',
       'c.md': 'marker-c guidance. See [b](b.md).',
-      'b.md': 'marker-b guidance.',
+      'b.md': '## One\n\nmarker-b1 guidance.\n\n## Two\n\nmarker-b2 guidance.',
     });
     final other = await _bundle(temp, 'other', {
       'z.md': 'marker-z guidance.',
@@ -84,8 +85,20 @@ void main() {
         ('small', 'a.md', 'match', 'marker-a1 guidance.'),
         ('small', 'a.md', 'match', 'marker-a2 guidance.'),
         ('small', 'c.md', 'match', 'marker-c guidance. See [b](b.md).'),
-        ('small', 'b.md', 'relationship', 'marker-b guidance.'),
+        ('small', 'b.md', 'relationship', 'marker-b1 guidance.'),
+        ('small', 'b.md', 'relationship', 'marker-b2 guidance.'),
       ],
     );
+    final markdown = found.toMarkdown();
+    for (final passage in [
+      'marker-a1',
+      'marker-a2',
+      'marker-c',
+      'marker-b1',
+      'marker-b2',
+      'marker-z',
+    ]) {
+      expect(passage.allMatches(markdown), hasLength(1), reason: passage);
+    }
   });
 }
