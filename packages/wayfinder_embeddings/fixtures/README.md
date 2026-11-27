@@ -63,10 +63,13 @@ judgments. The [fixture notes](embedding_comparison/README.md) state the known
 annotation limits. Current benchmark runners use dense retrieval only.
 
 `tool/benchmark_retrieval.dart` reports raw matches and assembled context at
-ten slots, with recall@3, recall@10, MRR and first-result correctness for the
-60 answerable questions of a split. For the 20 unanswerable questions it
-counts those that still returned candidates and records each query's top
-similarity. With `--iterations=0` it skips the latency loops.
+ten slots. Context comes from `KnowledgeIndex.search` with the full policy, as
+the CLI assembles it; raw matches rank the same query without links or
+governing sources. It reports recall@3, recall@10, MRR and first-result
+correctness for the 60 answerable questions of a split. For the 20
+unanswerable questions it counts those that still returned candidates and
+records each query's top similarity. With `--iterations=0` it skips the
+latency loops.
 
 ## samples/
 

@@ -139,39 +139,39 @@ Future<void> runBenchmark(
             : null,
         expandRelationships: context,
         governingSources: context ? governors : const {},
+        secondPassageMargin: context ? knowledgeSecondPassageMargin : null,
       );
       Future<
         ({
           List<SearchResult> matches,
           KnowledgeSearchResponse context,
           double searchMs,
-          double contextMs,
           double encodingMs,
         })
       >
       search(Map<String, dynamic> row) async {
         final clock = Stopwatch()..start();
         final before = encoder.queryMs;
+        final context = await index.search(
+          row['query'] as String,
+          policy: policy(row),
+          limit: 10,
+          contextLimit: 10,
+        );
+        final searchMs = elapsed(clock);
+        final encodingMs = encoder.queryMs - before;
+        // The policy-free ranking reuses the cached query vector.
         final raw = (await index.search(
           row['query'] as String,
           policy: policy(row, context: false),
           limit: 10,
           contextLimit: 10,
         )).matches;
-        final searchMs = elapsed(clock);
-        clock.reset();
-        final context = index.contextForMatches(
-          raw,
-          policy: policy(row),
-          limit: 10,
-          contextLimit: 10,
-        );
         return (
           matches: raw,
           context: context,
           searchMs: searchMs,
-          contextMs: elapsed(clock),
-          encodingMs: (encoder.queryMs) - before,
+          encodingMs: encodingMs,
         );
       }
 
@@ -208,7 +208,6 @@ Future<void> runBenchmark(
       final uncached = <double>[];
       final encoded = <double>[];
       final ranking = <double>[];
-      final assembly = <double>[];
       final queryCountBefore = encoder.queries;
       // Fresh index instances clear the query cache without reloading the engine.
       // Synchronization occurs outside query intervals and must reuse all vectors.
@@ -220,10 +219,9 @@ Future<void> runBenchmark(
         for (final row in shuffled) {
           if (uncached.length >= iterations) break;
           final result = await search(row);
-          uncached.add(result.searchMs + result.contextMs);
+          uncached.add(result.searchMs);
           encoded.add(result.encodingMs);
           ranking.add(result.searchMs - result.encodingMs);
-          assembly.add(result.contextMs);
         }
       }
       final uncachedQueryEncodings = (encoder.queries) - queryCountBefore;
@@ -240,7 +238,7 @@ Future<void> runBenchmark(
         for (final row in shuffled) {
           if (cached.length >= iterations) break;
           final result = await search(row);
-          cached.add(result.searchMs + result.contextMs);
+          cached.add(result.searchMs);
         }
       }
       final cachedQueryEncodings = (encoder.queries) - cacheBefore;
@@ -319,8 +317,7 @@ Future<void> runBenchmark(
         'timeToFirstResultMs': firstResultMs,
         'uncached': summarize(uncached),
         'queryEncoding': summarize(encoded),
-        'rankingAndRawContext': summarize(ranking),
-        'policyAssembly': summarize(assembly),
+        'rankingAndContext': summarize(ranking),
         'cached': summarize(cached),
         'uncachedQueryEncodings': uncachedQueryEncodings,
         'cachedQueryEncodings': cachedQueryEncodings,

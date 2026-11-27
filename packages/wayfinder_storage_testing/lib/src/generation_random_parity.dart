@@ -108,6 +108,7 @@ void runGenerationRandomParity(
             policy: KnowledgeSearchPolicy(
               expandRelationships: true,
               metadataFilter: filters,
+              secondPassageMargin: knowledgeSecondPassageMargin,
             ),
           );
           final found = await service.searchBundle(
@@ -144,6 +145,7 @@ void runGenerationRandomParity(
             policy: KnowledgeSearchPolicy(
               expandRelationships: true,
               metadataFilter: filters,
+              secondPassageMargin: knowledgeSecondPassageMargin,
             ),
           );
           final project = await service.search(

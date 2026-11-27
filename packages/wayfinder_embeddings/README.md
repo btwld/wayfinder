@@ -53,6 +53,11 @@ Coordinate writes when multiple index instances share a bundle. Search responses
 separate query-ranked `matches` from bounded policy-selected `context`, including
 inclusion reasons and typed `KnowledgeNotice`s about unresolved links and
 excluded governing context. They are candidates, not an answerability verdict.
+Context holds each document's best passage. With
+`KnowledgeSearchPolicy.secondPassageMargin`, a document's second-best passage
+follows it when it scores within that margin. The context limit counts
+documents, so the extra passage never displaces one. The knowledge store
+searches with `knowledgeSecondPassageMargin` (0.03).
 
 The caller's store persists passage text and vectors, or holds them in memory.
 `KnowledgeSnapshot.toMap/fromMap` round-trips fitted passages and the source inputs needed to reconstruct the OKF

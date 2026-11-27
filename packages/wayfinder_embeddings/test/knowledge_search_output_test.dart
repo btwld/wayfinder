@@ -4,6 +4,7 @@ import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:wayfinder/project.dart';
 import 'package:wayfinder_embeddings/knowledge_store.dart';
+import 'package:wayfinder_embeddings/okf_knowledge.dart';
 
 /// The search Markdown hosts render as tool text, and the JSON beside it.
 void main() {
@@ -254,5 +255,117 @@ void main() {
     );
     expect(markdown, contains('Notice: Notice line 1 ## Fake Notice Heading'));
     expect(markdown, isNot(contains('\n## Related Context\n')));
+  });
+
+  test("a matched document's second passage renders after its match", () {
+    SearchResult passage(String id, String path, int line, double score) =>
+        SearchResult(
+          chunk: Chunk(
+            id: id,
+            sourcePath: path,
+            lineStart: line,
+            lineEnd: line,
+            content: 'Passage $id.',
+            type: 'paragraph',
+          ),
+          embedding: null,
+          similarity: score,
+        );
+    final first = passage('a1', 'a.md', 3, 0.9);
+    final response = KnowledgeSearchResponse(
+      matches: [first],
+      context: [
+        KnowledgeContextHit(first, 'match'),
+        KnowledgeContextHit(passage('a2', 'a.md', 7, 0.88), 'match'),
+        KnowledgeContextHit(
+          passage('b1', 'b.md', 1, 0.2),
+          'relationship',
+          viaPath: 'a.md',
+        ),
+      ],
+      notices: [],
+    );
+    const bundle = ProjectBundle('knowledge', 'knowledge', '/nonexistent');
+    for (final markdown in [
+      KnowledgeBundleSearch(bundle, response).toMarkdown(),
+      KnowledgeProjectSearch([bundle], [response], limit: 2).toMarkdown(),
+    ]) {
+      final heading = markdown.indexOf('## Matches');
+      final second = markdown.indexOf('Passage a2.');
+      final related = markdown.indexOf('## Related Context');
+      expect(
+        markdown,
+        matches(RegExp(r'### (knowledge/)?a\.md:7-7 \[[^\]]*match\]')),
+      );
+      expect(heading, lessThan(markdown.indexOf('Passage a1.')));
+      expect(markdown.indexOf('Passage a1.'), lessThan(second));
+      expect(second, lessThan(related));
+      expect(related, lessThan(markdown.indexOf('Passage b1.')));
+      expect('Passage a2.'.allMatches(markdown), hasLength(1));
+    }
+  });
+
+  test('fitted fragments of one line render as separate passages', () async {
+    final words = [for (var i = 0; i < 40; i++) 'word$i'];
+    final fitted =
+        await KnowledgeSnapshot.fromSources({
+          'long.md': '---\ntype: Guideline\n---\n\n${words.join(' ')}\n',
+          'other.md': '---\ntype: Guideline\n---\n\nOther passage.\n',
+        }, bundleId: 'fitted').fitInputs(
+          countTokens: (text) async => text.split(RegExp(r'\s+')).length,
+          maxTokens: 30,
+          includeContext: true,
+        );
+    final fragments = [
+      for (final chunk in fitted.chunks)
+        if (chunk.sourcePath == 'long.md') chunk,
+    ];
+    expect(fragments.length, greaterThan(1));
+    final [first, second, ...] = fragments;
+    expect(
+      (second.lineStart, second.lineEnd),
+      (first.lineStart, first.lineEnd),
+      reason: 'the fragments share a line range',
+    );
+    final other = fitted.chunks.singleWhere(
+      (chunk) => chunk.sourcePath == 'other.md',
+    );
+    SearchResult hit(Chunk chunk) =>
+        SearchResult(chunk: chunk, embedding: null, similarity: 0.5);
+    const bundle = ProjectBundle('knowledge', 'knowledge', '/nonexistent');
+    for (final response in [
+      // The second fragment follows its document's match.
+      KnowledgeSearchResponse(
+        matches: [hit(first)],
+        context: [
+          KnowledgeContextHit(hit(first), 'match'),
+          KnowledgeContextHit(hit(second), 'match'),
+        ],
+        notices: [],
+      ),
+      // Both fragments are related context of another match.
+      KnowledgeSearchResponse(
+        matches: [hit(other)],
+        context: [
+          KnowledgeContextHit(hit(other), 'match'),
+          for (final fragment in [first, second])
+            KnowledgeContextHit(
+              hit(fragment),
+              'relationship',
+              viaPath: 'other.md',
+            ),
+        ],
+        notices: [],
+      ),
+    ]) {
+      final markdown = KnowledgeBundleSearch(bundle, response).toMarkdown();
+      for (final fragment in [first, second]) {
+        expect(
+          fragment.content.trim().allMatches(markdown),
+          hasLength(1),
+          reason: fragment.id,
+        );
+      }
+    }
   });
 }

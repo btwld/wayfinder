@@ -26,6 +26,11 @@ import 'knowledge_snapshot.dart';
 
 export 'package:wayfinder/project.dart' show KnowledgeMetadataFilter;
 
+/// The [KnowledgeSearchPolicy.secondPassageMargin] of knowledge store
+/// searches, selected on the development split of the 160-query comparison
+/// fixture.
+const knowledgeSecondPassageMargin = 0.03;
+
 /// Explicit consumer policy, never written into an OKF document.
 class KnowledgeSearchPolicy {
   KnowledgeSearchPolicy({
@@ -37,12 +42,21 @@ class KnowledgeSearchPolicy {
     Set<String> pathPrefixes = const {},
     this.expandRelationships = false,
     Map<String, String> governingSources = const {},
+    this.secondPassageMargin,
   }) : statuses = statuses == null ? null : Set.unmodifiable(statuses),
        conceptTypes = Set.unmodifiable(conceptTypes),
        pathPrefixes = Set.unmodifiable(pathPrefixes),
        governingSources = Map.unmodifiable(governingSources) {
     if (currentOnly && asOf == null) {
       throw ArgumentError('currentOnly requires an explicit asOf date.');
+    }
+    if (secondPassageMargin case final margin?
+        when !margin.isFinite || margin < 0) {
+      throw ArgumentError.value(
+        margin,
+        'secondPassageMargin',
+        'must be finite and nonnegative',
+      );
     }
     for (final start in governingSources.keys) {
       final visited = <String>{};
@@ -71,6 +85,12 @@ class KnowledgeSearchPolicy {
   /// Lower-authority concept path -> governing concept path. No inference from
   /// concept type, link label, verification tier, or similarity establishes it.
   final Map<String, String> governingSources;
+
+  /// Also returns a document's second-best passage, after its best one, when
+  /// it scores within this margin of it. The context limit counts documents,
+  /// so the extra passage never displaces one. Null keeps one passage per
+  /// document.
+  final double? secondPassageMargin;
 
   bool allows(KnowledgeSnapshot snapshot, String path) {
     final metadata = snapshot.metadataFor(path);
@@ -600,6 +620,7 @@ class KnowledgeIndex {
 
     var count = math.min(limit + 1, allowed.length);
     late List<SearchResult> ranked;
+    late double boundary;
     while (true) {
       final near = await reader.nearest(
         vector,
@@ -615,7 +636,7 @@ class KnowledgeIndex {
       }
       final seen = <int>{};
       ranked = [];
-      var boundary = double.infinity;
+      boundary = double.infinity;
       for (final row in near) {
         if (!allowed.contains(row.ordinal) || !seen.add(row.ordinal)) {
           throw const WayfinderException(
@@ -654,15 +675,31 @@ class KnowledgeIndex {
       budget: budget,
     );
     if (count == allowed.length) return response;
-    final matches = response.matches.map((hit) => hit.chunk.sourcePath).toSet();
-    final contextPaths =
-        response.context.map((hit) => hit.result.chunk.sourcePath).toSet()
-          ..removeAll(matches);
-    if (contextPaths.isEmpty) return response;
+    // Unscored rows score at most boundary + scoreError. Reading the rest of a
+    // document in context only when one of them could be its best passage or
+    // within the margin of it gives the passages of a complete ranking. The
+    // context limit counts documents, so assembling again cannot add one or
+    // change a match.
+    final margin = policy.secondPassageMargin ?? 0;
+    final best = <String, double>{};
+    for (final hit in ranked) {
+      best.putIfAbsent(hit.chunk.sourcePath, () => hit.similarity);
+    }
+    final paths = {
+      for (final hit in response.context)
+        if ((best[hit.result.chunk.sourcePath] ?? double.negativeInfinity) -
+                margin <=
+            boundary + scoreError)
+          hit.result.chunk.sourcePath,
+    };
+    final scored = {for (final hit in ranked) hit.chunk.id};
     final ordinals = [
       for (final ordinal in allowed)
-        if (contextPaths.contains(chunks[ordinal].sourcePath)) ordinal,
+        if (paths.contains(chunks[ordinal].sourcePath) &&
+            !scored.contains(chunks[ordinal].id))
+          ordinal,
     ];
+    if (ordinals.isEmpty) return response;
     final rows = await reader.rows(ordinals);
     throwIfCancelled(cancel);
     if (rows.length != ordinals.length) {
@@ -671,27 +708,17 @@ class KnowledgeIndex {
         'The generation reader did not return every requested context row.',
       );
     }
-    final best = <String, SearchResult>{};
-    for (final (index, ordinal) in ordinals.indexed) {
-      final hit = score(ordinal, rows[index]);
-      final path = hit.chunk.sourcePath;
-      final previous = best[path];
-      if (previous == null || _compareHits(hit, previous) < 0) best[path] = hit;
-    }
-    return KnowledgeSearchResponse(
-      matches: response.matches,
-      context: [
-        for (final hit in response.context)
-          KnowledgeContextHit(
-            best[hit.result.chunk.sourcePath] ?? hit.result,
-            hit.reason,
-            viaPath: hit.viaPath,
-            edge: hit.edge,
-            fieldEdge: hit.fieldEdge,
-          ),
-      ],
-      notices: response.notices,
-      sourcePaths: response.sourcePaths,
+    return _contextForEligible(
+      snapshot,
+      eligible,
+      [
+        ...ranked,
+        for (final (index, ordinal) in ordinals.indexed)
+          score(ordinal, rows[index]),
+      ]..sort(_compareHits),
+      policy: policy,
+      limit: limit,
+      budget: budget,
     );
   }
 
@@ -793,12 +820,35 @@ class KnowledgeIndex {
       }
     }
     final matches = best.values.take(limit).toList();
+    final second = <String, SearchResult>{};
+    if (policy.secondPassageMargin case final margin?) {
+      for (final hit in ranked) {
+        final chunk = eligible[hit.chunk.id];
+        final top = chunk == null ? null : best[chunk.sourcePath];
+        if (chunk == null ||
+            top == null ||
+            top.chunk.id == chunk.id ||
+            hit.similarity < top.similarity - margin) {
+          continue;
+        }
+        // Like the best passage, cite the stored chunk, never the caller's.
+        second.putIfAbsent(
+          chunk.sourcePath,
+          () => SearchResult(
+            chunk: chunk,
+            embedding: hit.embedding,
+            similarity: hit.similarity,
+          ),
+        );
+      }
+    }
     final byPath = <String, Chunk>{};
     for (final chunk in eligible.values) {
       byPath.putIfAbsent(chunk.sourcePath, () => chunk);
     }
     final context = <KnowledgeContextHit>[];
     final seen = <String>{};
+    var documents = 0;
     // One notice per sentence, in the order first found, with every path
     // that led to it.
     final notices = <String, _NoticeFacts>{};
@@ -821,7 +871,7 @@ class KnowledgeIndex {
       OkfGraphEdge? edge,
       OkfFieldEdge? fieldEdge,
     }) {
-      if (context.length >= budget || seen.contains(path)) return;
+      if (documents >= budget || seen.contains(path)) return;
       final governor = policy.governingSources[path];
       if (governor != null) {
         if (!byPath.containsKey(governor)) {
@@ -834,19 +884,25 @@ class KnowledgeIndex {
           add(governor, 'governing', via: path);
         }
       }
-      if (context.length >= budget || !seen.add(path)) return;
+      if (documents >= budget || !seen.add(path)) return;
       final chunk = byPath[path];
       if (chunk == null) return;
-      context.add(
-        KnowledgeContextHit(
-          best[path] ??
-              SearchResult(chunk: chunk, embedding: null, similarity: 0),
-          reason,
-          viaPath: via,
-          edge: edge,
-          fieldEdge: fieldEdge,
-        ),
-      );
+      documents++;
+      for (final hit in [
+        best[path] ??
+            SearchResult(chunk: chunk, embedding: null, similarity: 0),
+        ?second[path],
+      ]) {
+        context.add(
+          KnowledgeContextHit(
+            hit,
+            reason,
+            viaPath: via,
+            edge: edge,
+            fieldEdge: fieldEdge,
+          ),
+        );
+      }
     }
 
     void follow(
