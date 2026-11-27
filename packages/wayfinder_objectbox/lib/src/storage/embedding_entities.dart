@@ -36,8 +36,14 @@ class EmbeddingEntity {
 
   /// 384-dimensional vector payload with HNSW index for fast similarity search.
   ///
-  /// HNSW searches approximate neighbors using cosine distance.
-  @HnswIndex(dimensions: 384, distanceType: VectorDistanceType.cosine)
+  /// HNSW searches approximate neighbors using cosine distance; changing these
+  /// parameters rebuilds the index of an existing database when it opens.
+  @HnswIndex(
+    dimensions: 384,
+    distanceType: VectorDistanceType.cosine,
+    neighborsPerNode: 64,
+    indexingSearchCount: 100,
+  )
   @Property(type: PropertyType.floatVector)
   Float32List vector;
 

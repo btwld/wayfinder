@@ -126,9 +126,10 @@ A registered generation format stores each immutable generation and returns its 
 
 ## Optional ObjectBox embedding store
 
-Date: 2026-11-25.
+Date: 2026-11-25; search tuning amendment 2026-11-26.
 
 Move the persistent `BaseStore` driver and its native dependency to [`wayfinder_objectbox`](packages/wayfinder_objectbox/README.md) so retrieval hosts can use the embeddings library without resolving ObjectBox. The saved-generation probe on Linux x64 with ObjectBox 6.0.0-beta2 measured changed `lock.mdb` bytes after a read-only session, and the approximate pool missed exact neighbors on the synthetic corpus, so ship the store only; application indexes use plain-file or SQLite generations.
+Its HNSW index uses 64 neighbors per node and searches at least 200 candidates, because on 2,675 real-model passages that returned the exact top 10 for every query where the previous defaults returned 88% of those results; queries cost about 7 ms instead of 2 ms and indexing about twice as long. The [OKF retrieval gate](packages/wayfinder_embeddings/fixtures/README.md#benchmarks) compares its `findSimilar` results with exact ranking, but the fixture is too small to exercise the approximation.
 
 ## SQLite generation storage for CLI and MCP
 

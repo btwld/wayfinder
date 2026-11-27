@@ -42,7 +42,7 @@ class ObjectBoxStore extends BaseStore {
   /// Opens (or creates) an ObjectBox store rooted at [directory].
   factory ObjectBoxStore.open(
     String directory, {
-    int minimumSearchCandidates = 50,
+    int minimumSearchCandidates = 200,
   }) {
     if (minimumSearchCandidates <= 0) {
       throw ArgumentError.value(
@@ -83,8 +83,7 @@ class ObjectBoxStore extends BaseStore {
 
   /// HNSW candidate floor, independent of the requested result limit.
   ///
-  /// A wider pool trades work for recall. Fifty recovers the dense fixture
-  /// recall lost with a ten-candidate search; larger corpora need evaluation.
+  /// A wider pool trades query work for closeness to exact ranking.
   final int minimumSearchCandidates;
   final Box<ChunkEntity> _chunkBox;
   final Box<EmbeddingEntity> _embeddingBox;

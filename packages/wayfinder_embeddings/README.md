@@ -339,7 +339,7 @@ dart run tool/prepare_model.dart
 dart run example/knowledge_example.dart
 
 # Compare retrieval components on the committed OKF fixture.
-dart run tool/evaluate_okf_retrieval.dart --stores=memory --split=development --output=comparison_results/okf-development.json
+dart run tool/evaluate_okf_retrieval.dart --split=development --output=comparison_results/okf-development.json
 
 # Build the generic corpus evaluation CLI with its native assets.
 dart run tool/build_wayfinder_embeddings.dart --offline
@@ -745,6 +745,38 @@ dart run tool/compare_embeddings.dart \
 
 The gate allows absolute drops of 0.05 Recall@10 and 0.03 nDCG@10 by default.
 Update goldens with `UPDATE_GOLDENS=1` only after reviewing the content change.
+
+The OKF fixture gate checks the memory store's runs against one baseline on
+both splits. Any value below its baseline fails, including a single lost
+question:
+
+```bash
+dart run tool/evaluate_okf_retrieval.dart --no-timing \
+  --split=development,held_out \
+  --baseline=fixtures/benchmarks/okf_retrieval_baseline.json \
+  --output=comparison_results/okf-memory.json
+```
+
+Run the same command from `packages/wayfinder_drift` or
+`packages/wayfinder_objectbox` with `--stores=drift` or `--stores=objectbox`,
+`--baseline=../wayfinder_embeddings/fixtures/benchmarks/okf_retrieval_baseline.json` and
+`WAYFINDER_EMBEDDING_MODEL=../wayfinder_embeddings/models/embedding.gguf`.
+Those stores run only `findSimilar/*`, gated against the same values and exact
+ranking.
+
+The 160-query comparison fixture gate runs one split per process:
+
+```bash
+for split in development test; do
+  dart run tool/benchmark_retrieval.dart --split=$split --iterations=0 \
+    --verify-token-budget --database=comparison_results/db-$split \
+    --baseline=fixtures/benchmarks/embedding_comparison_baseline.json \
+    --output=comparison_results/comparison-$split.json
+done
+```
+
+Add `--update-baseline` to rewrite a split's baseline after reviewing its
+per-query changes.
 
 The judged corpus is mostly Dart, and this package has no Dart chunker.
 `--reference-chunks` replays the corpus golden's chunks for every file no

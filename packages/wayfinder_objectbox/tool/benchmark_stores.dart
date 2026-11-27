@@ -84,7 +84,9 @@ Future<void> main(List<String> args) async {
           'reopenMs': ?reopenMs,
           'readChunksMs': readChunksMs,
           'denseSearchMs': _summary(denseMs),
-          'minimumSearchCandidates': kind == 'objectbox' ? 50 : null,
+          'minimumSearchCandidates': store is ObjectBoxStore
+              ? store.minimumSearchCandidates
+              : null,
         };
       } finally {
         await store.close();

@@ -43,3 +43,22 @@ supplies Linux x64, macOS arm64 and Windows x64 binaries. Use an asset-aware
 Dart command such as `dart run` or `dart build cli` to build an application.
 Linux x64 is tested in source CI. macOS arm64 and Windows x64 runtime loading
 are unverified.
+
+## Development
+
+Run the suite from this package; it needs no embedding model:
+
+```sh
+dart test --concurrency=2
+```
+
+The OKF retrieval gate loads the model. Prepare it with
+`dart run melos run wayfinder_embeddings:prepare` from the root, then run:
+
+```sh
+WAYFINDER_EMBEDDING_MODEL=../wayfinder_embeddings/models/embedding.gguf \
+  dart run tool/evaluate_okf_retrieval.dart --stores=drift --no-timing \
+  --split=development,held_out \
+  --baseline=../wayfinder_embeddings/fixtures/benchmarks/okf_retrieval_baseline.json \
+  --output=okf-drift.json
+```

@@ -231,11 +231,37 @@ jobs:
         working-directory: .
       - run: dart run tool/evaluate_knowledge_cases.dart "$RUNNER_TEMP/knowledge-cases.json"
         shell: bash
-      - name: Compare OKF retrieval components on both fixed splits
+      # Memory gates every OKF run against the baseline. Drift and ObjectBox
+      # run only findSimilar, gated against the same values and exact ranking.
+      - name: Gate OKF retrieval on the memory store
+        shell: bash
+        run: >-
+          dart run tool/evaluate_okf_retrieval.dart --no-timing
+          --split=development,held_out
+          --baseline=fixtures/benchmarks/okf_retrieval_baseline.json
+          --output="$RUNNER_TEMP/okf-memory.json"
+      - name: Gate OKF retrieval on the Drift store
+        shell: bash
+        working-directory: packages/wayfinder_drift
+        env:
+          WAYFINDER_EMBEDDING_MODEL: ../wayfinder_embeddings/models/embedding.gguf
+        run: >-
+          dart run tool/evaluate_okf_retrieval.dart --stores=drift --no-timing
+          --split=development,held_out
+          --baseline=../wayfinder_embeddings/fixtures/benchmarks/okf_retrieval_baseline.json
+          --output="$RUNNER_TEMP/okf-drift.json"
+      - name: Gate the 160-query comparison fixture on both splits
         shell: bash
         run: |
-          dart run tool/evaluate_okf_retrieval.dart --no-timing --split=development --output="$RUNNER_TEMP/okf-development.json"
-          dart run tool/evaluate_okf_retrieval.dart --no-timing --split=held_out --output="$RUNNER_TEMP/okf-held-out.json"
+          status=0
+          for split in development test; do
+            dart run tool/benchmark_retrieval.dart --split="$split" \
+              --iterations=0 --verify-token-budget \
+              --database="$RUNNER_TEMP/comparison-$split" \
+              --baseline=fixtures/benchmarks/embedding_comparison_baseline.json \
+              --output="$RUNNER_TEMP/comparison-$split.json" || status=1
+          done
+          exit "$status"
       - run: dart run tool/build_wayfinder_embeddings.dart --offline
       - name: Run relocated native bundle against the judged corpus
         shell: bash
@@ -284,6 +310,7 @@ jobs:
           name: wayfinder-native-${{ runner.os }}-${{ runner.arch }}
           path: build/wayfinder-*.tar.gz*
       - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
         with:
           name: native-retrieval-${{ matrix.os }}-${{ matrix.sdk }}
           path: |
@@ -291,8 +318,10 @@ jobs:
             ${{ runner.temp }}/wayfinder-mcp.json
             ${{ runner.temp }}/retrieval-metrics.json
             ${{ runner.temp }}/knowledge-cases.json
-            ${{ runner.temp }}/okf-development.json
-            ${{ runner.temp }}/okf-held-out.json
+            ${{ runner.temp }}/okf-memory.json
+            ${{ runner.temp }}/okf-drift.json
+            ${{ runner.temp }}/comparison-development.json
+            ${{ runner.temp }}/comparison-test.json
 
   native-objectbox:
     needs: changes
@@ -329,8 +358,8 @@ jobs:
         working-directory: packages/wayfinder_objectbox
         env:
           WAYFINDER_REQUIRE_NATIVE: "1"
-      # Only this run searches through HNSW findSimilar; KnowledgeIndex scores
-      # stored vectors exactly.
+      # Both gates search through HNSW findSimilar: the 350-chunk corpus here,
+      # and the OKF fixture's findSimilar runs below.
       - name: Gate ObjectBox retrieval against the judged corpus
         shell: bash
         working-directory: packages/wayfinder_objectbox
@@ -347,10 +376,21 @@ jobs:
             --output="$RUNNER_TEMP/objectbox-retrieval-results" \
             --baseline-metrics="$embeddings/fixtures/benchmarks/dense_metrics_baseline.json" \
             --metrics-output="$RUNNER_TEMP/objectbox-retrieval-metrics.json"
+      - run: >-
+          dart run tool/evaluate_okf_retrieval.dart --stores=objectbox
+          --no-timing --split=development,held_out
+          --baseline=../wayfinder_embeddings/fixtures/benchmarks/okf_retrieval_baseline.json
+          --output="$RUNNER_TEMP/okf-objectbox.json"
+        working-directory: packages/wayfinder_objectbox
+        env:
+          WAYFINDER_EMBEDDING_MODEL: ../wayfinder_embeddings/models/embedding.gguf
       - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
         with:
           name: native-objectbox-retrieval
-          path: ${{ runner.temp }}/objectbox-retrieval-metrics.json
+          path: |
+            ${{ runner.temp }}/objectbox-retrieval-metrics.json
+            ${{ runner.temp }}/okf-objectbox.json
 
   required-checks:
     name: Required checks

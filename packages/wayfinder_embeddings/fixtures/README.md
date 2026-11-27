@@ -33,7 +33,17 @@ and held-out splits contain 18 and 17 questions. This unprofiled fixture is not
 a normative bundle template. Do not adjust judgments to fit model output.
 
 `dart run tool/evaluate_okf_retrieval.dart --output=REPORT` requires the local
-model. It reports dense results for the memory store and the context-policy variants.
+model. `knowledge/*` runs search through `KnowledgeIndex`, which scores every
+stored vector in Dart, for each context-policy variant; their cutoff is the
+fixture's three context slots. `findSimilar/*` runs query the stored body and
+context vectors through the store's own `findSimilar` at ten results, so
+approximate native search is measured, and compare each list with exact cosine
+ranking (`exactRecall`, `maxScoreDelta`). Both report recall, MRR, nDCG and
+top-1. The Drift and ObjectBox packages have the same tool for their stores;
+it runs only their `findSimilar/*` runs, because `knowledge/*` scores the same
+vectors in Dart. The 37 passages are fewer than ObjectBox's candidate floor, so
+the fixture checks the ObjectBox result path but cannot exercise its HNSW
+approximation.
 See the [evaluation guide](../README.md#evaluation).
 
 ## knowledge_retrieval/
@@ -51,6 +61,12 @@ from the 65-query corpus gate.
 100 synthetic concepts and 160 topic-separated questions retain frozen support
 judgments. The [fixture notes](embedding_comparison/README.md) state the known
 annotation limits. Current benchmark runners use dense retrieval only.
+
+`tool/benchmark_retrieval.dart` reports raw matches and assembled context at
+ten slots, with recall@3, recall@10, MRR and first-result correctness for the
+60 answerable questions of a split. For the 20 unanswerable questions it
+counts those that still returned candidates and records each query's top
+similarity. With `--iterations=0` it skips the latency loops.
 
 ## samples/
 
@@ -78,6 +94,16 @@ judgment and is not a new evaluation. Its original model identity predates the
 current identity spelling; the gate compares metric drops, not that old string.
 The original run used the recorded truncation policy. Do not present its results
 as current accuracy on a different corpus, chunk policy, or model.
+
+`embedding_comparison_baseline.json` holds the 160-query fixture's raw and
+context recall@3, recall@10 and MRR per split, and
+`okf_retrieval_baseline.json` the OKF fixture's recall and MRR per split and
+run, both recorded with the memory store on Linux x64. `--baseline` fails a
+run whose value falls below its baseline by any amount, so losing a single
+question fails the gate. It also fails on a run or metric missing from either
+side and on a different model or query file. Every OKF `findSimilar/*` run must
+match exact ranking (`exactRecall` 1). Refresh a baseline with
+`--update-baseline` only after reviewing the per-query change.
 
 Obsolete multi-method reports are retired from the active tree. Their committed
 originals remain in Git history; current reproduction uses the [evaluation guide](../README.md#evaluation).
