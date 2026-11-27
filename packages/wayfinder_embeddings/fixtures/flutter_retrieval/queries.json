@@ -1,0 +1,487 @@
+{
+  "asOf": "2026-11-27",
+  "limit": 5,
+  "governingSources": {},
+  "queries": [
+    {
+      "id": "cache-retry",
+      "query": "Where should the code that remembers fetched data and tries again after a network failure live?",
+      "split": "development",
+      "group": "paraphrase",
+      "support": [
+        {
+          "path": "architecture/flutter-application-architecture.md",
+          "contains": "repositories own caching"
+        }
+      ]
+    },
+    {
+      "id": "optional-domain",
+      "query": "Do I always need an extra business-rules tier between screens and data?",
+      "split": "development",
+      "group": "scope",
+      "support": [
+        {
+          "path": "architecture/flutter-application-architecture.md",
+          "contains": "Simple CRUD applications may not need that layer."
+        }
+      ]
+    },
+    {
+      "id": "state-pattern-scope",
+      "query": "Is the suggested screen-state pattern required for every app, or only for one workflow?",
+      "split": "development",
+      "group": "scope",
+      "support": [
+        {
+          "path": "architecture/flutter-application-architecture.md",
+          "contains": "not a universal requirement"
+        }
+      ]
+    },
+    {
+      "id": "embedder",
+      "query": "What does the platform embedder do?",
+      "split": "development",
+      "group": "exact",
+      "support": [
+        {
+          "path": "architecture/flutter-framework-layers.md",
+          "contains": "platform embedder integrates with the operating system"
+        }
+      ]
+    },
+    {
+      "id": "element-tree",
+      "query": "Which structure keeps track of how UI pieces relate to each other and holds on to their state?",
+      "split": "development",
+      "group": "paraphrase",
+      "support": [
+        {
+          "path": "architecture/flutter-framework-layers.md",
+          "contains": "element tree that retains relationships"
+        }
+      ]
+    },
+    {
+      "id": "skip-unchanged",
+      "query": "When the screen refreshes, does Flutter redo the parts that did not change?",
+      "split": "development",
+      "group": "paraphrase",
+      "support": [
+        {
+          "path": "architecture/flutter-framework-layers.md",
+          "contains": "clean subtrees can be"
+        }
+      ]
+    },
+    {
+      "id": "breakpoints",
+      "query": "How should I decide when to switch to a two-pane design on a big screen?",
+      "split": "development",
+      "group": "paraphrase",
+      "support": [
+        {
+          "path": "layout/flutter-adaptive-layouts.md",
+          "contains": "Breakpoints should be based on available width"
+        }
+      ]
+    },
+    {
+      "id": "max-width",
+      "query": "How do I stop content from getting too wide on a desktop monitor?",
+      "split": "development",
+      "group": "paraphrase",
+      "support": [
+        {
+          "path": "layout/flutter-adaptive-layouts.md",
+          "contains": "prevents content from stretching"
+        }
+      ]
+    },
+    {
+      "id": "layoutbuilder-vs-mediaquery",
+      "query": "When should I use LayoutBuilder instead of MediaQuery.sizeOf?",
+      "split": "development",
+      "group": "exact",
+      "support": [
+        {
+          "path": "layout/flutter-adaptive-layouts.md",
+          "contains": "Use `LayoutBuilder` for a parent allocation"
+        }
+      ]
+    },
+    {
+      "id": "lazy-lists",
+      "query": "Should a long scrolling catalog create all of its items up front?",
+      "split": "development",
+      "group": "paraphrase",
+      "support": [
+        {
+          "path": "layout/flutter-adaptive-layouts.md",
+          "contains": "lazy builders for large collections"
+        }
+      ]
+    },
+    {
+      "id": "status-bar-overlap",
+      "query": "Why does my Android app suddenly draw behind the status bar after I upgraded Flutter?",
+      "split": "development",
+      "group": "paraphrase",
+      "support": [
+        {
+          "path": "layout/flutter-edge-to-edge-migration.md",
+          "contains": "opts the app into edge-to-edge display"
+        }
+      ]
+    },
+    {
+      "id": "keep-old-bars",
+      "query": "Can I keep the old system-bar behaviour for now on the newest Android?",
+      "split": "development",
+      "group": "paraphrase",
+      "support": [
+        {
+          "path": "layout/flutter-edge-to-edge-migration.md",
+          "contains": "android:windowOptOutEdgeToEdgeEnforcement"
+        }
+      ]
+    },
+    {
+      "id": "list-in-column",
+      "query": "My scrolling list inside a vertical stack throws an error about infinite height. Why?",
+      "split": "development",
+      "group": "paraphrase",
+      "support": [
+        {
+          "path": "layout/flutter-layout-constraints.md",
+          "contains": "unbounded height"
+        }
+      ]
+    },
+    {
+      "id": "error-order",
+      "query": "Several layout errors appear at once. Which one should I look at first?",
+      "split": "development",
+      "group": "paraphrase",
+      "support": [
+        {
+          "path": "layout/flutter-layout-constraints.md",
+          "contains": "inspect the earlier constraint exception first"
+        }
+      ]
+    },
+    {
+      "id": "bound-scrollable",
+      "query": "How do I give a scrolling child a finite size inside a vertical stack?",
+      "split": "development",
+      "group": "paraphrase",
+      "support": [
+        {
+          "path": "layout/flutter-layout-constraints.md",
+          "contains": "or give it a bounded `SizedBox`"
+        }
+      ]
+    },
+    {
+      "id": "shared-setup",
+      "query": "How do I share preparation and cleanup code between several Dart test cases?",
+      "split": "development",
+      "group": "paraphrase",
+      "support": [
+        {
+          "path": "testing/dart-unit-tests.md",
+          "contains": "for shared state"
+        }
+      ]
+    },
+    {
+      "id": "missing-e2e",
+      "query": "Why are my end-to-end tests not picked up when I run the normal test command?",
+      "split": "development",
+      "group": "paraphrase",
+      "support": [
+        {
+          "path": "testing/dart-unit-tests.md",
+          "contains": "integration tests need an explicit path"
+        }
+      ]
+    },
+    {
+      "id": "assert-too-soon",
+      "query": "My widget test checks the result too soon after a tap. What should it do first?",
+      "split": "development",
+      "group": "paraphrase",
+      "support": [
+        {
+          "path": "testing/flutter-widget-tests.md",
+          "contains": "call `pump` for a frame"
+        }
+      ]
+    },
+    {
+      "id": "widget-definition",
+      "query": "What is the basic building block that describes a piece of the screen?",
+      "split": "development",
+      "group": "paraphrase",
+      "support": [
+        {
+          "path": "terminology/widget.md",
+          "contains": "immutable description of part of a user interface"
+        }
+      ]
+    },
+    {
+      "id": "ui-vs-logic-tests",
+      "query": "How do tests for UI components relate to plain logic tests?",
+      "split": "development",
+      "group": "comparison",
+      "support": [
+        {
+          "path": "testing/flutter-widget-tests.md",
+          "contains": "They complement Dart unit tests"
+        }
+      ]
+    },
+    {
+      "id": "external-systems",
+      "query": "Which layer should talk to outside APIs and databases?",
+      "split": "held_out",
+      "group": "paraphrase",
+      "support": [
+        {
+          "path": "architecture/flutter-application-architecture.md",
+          "contains": "Services wrap external systems"
+        }
+      ]
+    },
+    {
+      "id": "thin-screens",
+      "query": "What should screen code do besides drawing what it is given?",
+      "split": "held_out",
+      "group": "paraphrase",
+      "support": [
+        {
+          "path": "architecture/flutter-application-architecture.md",
+          "contains": "UI widgets should stay lean"
+        }
+      ]
+    },
+    {
+      "id": "model-mapping",
+      "query": "Where do server responses get turned into the app's own data types?",
+      "split": "held_out",
+      "group": "paraphrase",
+      "support": [
+        {
+          "path": "architecture/flutter-application-architecture.md",
+          "contains": "map external models to domain"
+        }
+      ]
+    },
+    {
+      "id": "engine",
+      "query": "What gives Flutter its low-level drawing and runtime support?",
+      "split": "held_out",
+      "group": "paraphrase",
+      "support": [
+        {
+          "path": "architecture/flutter-framework-layers.md",
+          "contains": "engine provides low-level graphics"
+        }
+      ]
+    },
+    {
+      "id": "constraint-direction",
+      "query": "In which direction do size limits travel when Flutter positions UI pieces?",
+      "split": "held_out",
+      "group": "paraphrase",
+      "support": [
+        {
+          "path": "architecture/flutter-framework-layers.md",
+          "contains": "constraints move from parent to child"
+        }
+      ]
+    },
+    {
+      "id": "performance-claim",
+      "query": "Does Flutter's internal design guarantee that my app will be fast?",
+      "split": "held_out",
+      "group": "scope",
+      "support": [
+        {
+          "path": "architecture/flutter-framework-layers.md",
+          "contains": "not a promise that every application"
+        }
+      ]
+    },
+    {
+      "id": "device-category",
+      "query": "Should I check whether the device is a phone or a tablet to choose the layout?",
+      "split": "held_out",
+      "group": "paraphrase",
+      "support": [
+        {
+          "path": "layout/flutter-adaptive-layouts.md",
+          "contains": "not a guessed"
+        }
+      ]
+    },
+    {
+      "id": "input-kinds",
+      "query": "Which ways of interacting should a responsive app support?",
+      "split": "held_out",
+      "group": "paraphrase",
+      "support": [
+        {
+          "path": "layout/flutter-adaptive-layouts.md",
+          "contains": "keyboard, mouse, trackpad, and touch"
+        }
+      ]
+    },
+    {
+      "id": "api-level",
+      "query": "Which Android API level does Flutter 3.27 target by default?",
+      "split": "held_out",
+      "group": "exact",
+      "support": [
+        {
+          "path": "layout/flutter-edge-to-edge-migration.md",
+          "contains": "Android 15 (API 35)"
+        }
+      ]
+    },
+    {
+      "id": "opt-out-future",
+      "query": "Will the temporary way to avoid full-screen drawing keep working in later Android versions?",
+      "split": "held_out",
+      "group": "paraphrase",
+      "support": [
+        {
+          "path": "layout/flutter-edge-to-edge-migration.md",
+          "contains": "Android 16 removes the opt-out"
+        }
+      ]
+    },
+    {
+      "id": "opt-out-files",
+      "query": "Which resource files do I change to turn off the full-screen drawing change for light and dark mode?",
+      "split": "held_out",
+      "group": "paraphrase",
+      "support": [
+        {
+          "path": "layout/flutter-edge-to-edge-migration.md",
+          "contains": "res/values-night/styles.xml"
+        }
+      ]
+    },
+    {
+      "id": "field-in-row",
+      "query": "A text input placed in a horizontal line of widgets throws a width error. What is going on?",
+      "split": "held_out",
+      "group": "paraphrase",
+      "support": [
+        {
+          "path": "layout/flutter-layout-constraints.md",
+          "contains": "unbounded width"
+        }
+      ]
+    },
+    {
+      "id": "parent-data",
+      "query": "Can I wrap a child in Positioned anywhere in the tree?",
+      "split": "held_out",
+      "group": "paraphrase",
+      "support": [
+        {
+          "path": "layout/flutter-layout-constraints.md",
+          "contains": "under the parent types that consume their parent data"
+        }
+      ]
+    },
+    {
+      "id": "renderbox-error",
+      "query": "What does 'RenderBox was not laid out' usually mean?",
+      "split": "held_out",
+      "group": "exact",
+      "support": [
+        {
+          "path": "layout/flutter-layout-constraints.md",
+          "contains": "secondary error"
+        }
+      ]
+    },
+    {
+      "id": "test-file-location",
+      "query": "Where do Dart test files go and how should they be named?",
+      "split": "held_out",
+      "group": "paraphrase",
+      "support": [
+        {
+          "path": "testing/dart-unit-tests.md",
+          "contains": "Place Dart unit tests under the package"
+        }
+      ]
+    },
+    {
+      "id": "mock-everything",
+      "query": "Does every test need a fake stand-in for its dependencies?",
+      "split": "held_out",
+      "group": "scope",
+      "support": [
+        {
+          "path": "testing/dart-unit-tests.md",
+          "contains": "imply that every test needs a mock"
+        }
+      ]
+    },
+    {
+      "id": "offscreen-item",
+      "query": "My widget test can't find an item further down a long list. Why?",
+      "split": "held_out",
+      "group": "paraphrase",
+      "support": [
+        {
+          "path": "testing/flutter-widget-tests.md",
+          "contains": "Scroll long lists until the target"
+        }
+      ]
+    },
+    {
+      "id": "wait-animation",
+      "query": "How do I wait for an animation to finish in a widget test?",
+      "split": "held_out",
+      "group": "paraphrase",
+      "support": [
+        {
+          "path": "testing/flutter-widget-tests.md",
+          "contains": "`pumpAndSettle` for an"
+        }
+      ]
+    },
+    {
+      "id": "next-sdk",
+      "query": "Do the 3.35 release notes tell me how the next SDK will behave?",
+      "split": "held_out",
+      "group": "scope",
+      "support": [
+        {
+          "path": "release/flutter-3-35-release-evidence.md",
+          "contains": "future SDK has the same behavior"
+        }
+      ]
+    },
+    {
+      "id": "pure-dart-run",
+      "query": "How do I run tests for a package that has no Flutter dependency?",
+      "split": "held_out",
+      "group": "paraphrase",
+      "support": [
+        {
+          "path": "testing/dart-unit-tests.md",
+          "contains": "Run a pure Dart package with `dart test`"
+        }
+      ]
+    }
+  ]
+}

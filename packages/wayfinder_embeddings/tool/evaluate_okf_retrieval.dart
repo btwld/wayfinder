@@ -45,6 +45,15 @@ Future<void> evaluate(
       defaultsTo: ['development'],
     )
     ..addOption('output', mandatory: true)
+    ..addOption(
+      'fixture',
+      defaultsTo: fixture,
+      help: 'Directory that holds queries.json.',
+    )
+    ..addOption(
+      'bundle',
+      help: "OKF bundle to search. Defaults to the fixture's bundle/.",
+    )
     ..addOption('stores', defaultsTo: stores.keys.join(','))
     ..addOption(
       'baseline',
@@ -74,7 +83,9 @@ Future<void> evaluate(
       '--update-baseline requires --baseline and the memory store.',
     );
   }
-  final queryText = await File('$fixture/queries.json').readAsString();
+  final fixtureDirectory = options.option('fixture')!;
+  final bundle = options.option('bundle') ?? '$fixtureDirectory/bundle';
+  final queryText = await File('$fixtureDirectory/queries.json').readAsString();
   final data = jsonDecode(queryText) as Map<String, Object?>;
   final queries = {
     for (final split in splits)
@@ -83,10 +94,7 @@ Future<void> evaluate(
           .where((row) => row['split'] == split)
           .toList(),
   };
-  final snapshot = await KnowledgeSnapshot.load(
-    '$fixture/bundle',
-    bundleId: 'evaluation',
-  );
+  final snapshot = await KnowledgeSnapshot.load(bundle, bundleId: 'evaluation');
   final governors = (data['governingSources']! as Map).cast<String, String>();
   final date = DateTime.parse(data['asOf']! as String);
   final limit = data['limit']! as int;
